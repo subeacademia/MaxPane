@@ -1,0 +1,17 @@
+# Build
+cpp/build/
+
+# SDK and WDL (external dependencies)
+cpp/sdk/
+cpp/WDL/
+
+# macOS
+.DS_Store
+
+# Binaries
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.xcodeproj/
