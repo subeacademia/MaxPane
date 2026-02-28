@@ -5,7 +5,6 @@
 #include <cstdio>
 
 WindowManager::WindowManager()
-  : m_activePaneCount(3)
 {
   memset(m_panes, 0, sizeof(m_panes));
   for (int i = 0; i < MAX_PANES; i++) {
@@ -23,13 +22,6 @@ void WindowManager::Init()
       memset(&m_panes[i].tabs[t], 0, sizeof(TabEntry));
     }
   }
-}
-
-void WindowManager::SetActivePaneCount(int count)
-{
-  if (count < 1) count = 1;
-  if (count > MAX_PANES) count = MAX_PANES;
-  m_activePaneCount = count;
 }
 
 // =========================================================================
@@ -146,7 +138,7 @@ HWND WindowManager::FindChildInParent(HWND parent, const char* title)
 
 bool WindowManager::CaptureByIndex(int paneId, int knownWindowIndex, HWND containerHwnd)
 {
-  if (paneId < 0 || paneId >= m_activePaneCount) return false;
+  if (paneId < 0 || paneId >= MAX_PANES) return false;
   if (knownWindowIndex < 0 || knownWindowIndex >= NUM_KNOWN_WINDOWS) return false;
 
   PaneState& ps = m_panes[paneId];
@@ -193,7 +185,7 @@ bool WindowManager::CaptureByIndex(int paneId, int knownWindowIndex, HWND contai
 
 bool WindowManager::CaptureArbitraryWindow(int paneId, HWND targetHwnd, const char* displayName, HWND containerHwnd)
 {
-  if (paneId < 0 || paneId >= m_activePaneCount) return false;
+  if (paneId < 0 || paneId >= MAX_PANES) return false;
   if (!targetHwnd || !displayName) return false;
 
   PaneState& ps = m_panes[paneId];
@@ -358,8 +350,8 @@ void WindowManager::CloseTab(int paneId, int tabIndex)
 
 void WindowManager::MoveTab(int srcPane, int srcTab, int dstPane)
 {
-  if (srcPane < 0 || srcPane >= m_activePaneCount) return;
-  if (dstPane < 0 || dstPane >= m_activePaneCount) return;
+  if (srcPane < 0 || srcPane >= MAX_PANES) return;
+  if (dstPane < 0 || dstPane >= MAX_PANES) return;
   if (srcPane == dstPane) return;
 
   PaneState& src = m_panes[srcPane];
@@ -436,20 +428,25 @@ void WindowManager::ReleaseAll()
 // Reposition / Check alive
 // =========================================================================
 
-void WindowManager::RepositionAll(const SplitterLayout& layout)
+void WindowManager::RepositionAll(const SplitTree& tree)
 {
-  int count = layout.GetPaneCount();
-  for (int i = 0; i < count; i++) {
-    PaneState& ps = m_panes[i];
+  const int* leafList = tree.GetLeafList();
+  int leafCount = tree.GetLeafCount();
+
+  for (int i = 0; i < leafCount; i++) {
+    int paneId = tree.GetPaneId(leafList[i]);
+    if (paneId < 0 || paneId >= MAX_PANES) continue;
+
+    PaneState& ps = m_panes[paneId];
     if (ps.tabCount == 0) continue;
 
-    const Pane& pane = layout.GetPane(i);
+    const RECT& paneRect = tree.GetPaneRect(paneId);
     int headerOffset = TAB_BAR_HEIGHT;
 
-    int x = pane.rect.left;
-    int y = pane.rect.top + headerOffset;
-    int w = pane.rect.right - pane.rect.left;
-    int h = pane.rect.bottom - pane.rect.top - headerOffset;
+    int x = paneRect.left;
+    int y = paneRect.top + headerOffset;
+    int w = paneRect.right - paneRect.left;
+    int h = paneRect.bottom - paneRect.top - headerOffset;
 
     if (w <= 0 || h <= 0) continue;
 
@@ -461,9 +458,6 @@ void WindowManager::RepositionAll(const SplitterLayout& layout)
       if (t == ps.activeTab) {
         SetWindowPos(tab.hwnd, HWND_TOP, x, y, w, h,
                      SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        // Note: do NOT SendMessage(WM_SIZE) — SetWindowPos already triggers it,
-        // and some REAPER windows (Actions) crash if WM_SIZE is sent after
-        // being detached from their docker (dangling sizer pointers)
       } else {
         ShowWindow(tab.hwnd, SW_HIDE);
       }
@@ -473,7 +467,7 @@ void WindowManager::RepositionAll(const SplitterLayout& layout)
 
 void WindowManager::CheckAlive(HWND containerHwnd)
 {
-  for (int i = 0; i < m_activePaneCount; i++) {
+  for (int i = 0; i < MAX_PANES; i++) {
     PaneState& ps = m_panes[i];
     for (int t = ps.tabCount - 1; t >= 0; t--) {
       TabEntry& tab = ps.tabs[t];
@@ -532,7 +526,7 @@ int WindowManager::GetTabCount(int paneId) const
 
 bool WindowManager::IsAnyCaptured() const
 {
-  for (int i = 0; i < m_activePaneCount; i++) {
+  for (int i = 0; i < MAX_PANES; i++) {
     if (m_panes[i].tabCount > 0) return true;
   }
   return false;

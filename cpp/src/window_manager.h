@@ -1,6 +1,6 @@
 #pragma once
 #include "config.h"
-#include "splitter.h"
+#include "split_tree.h"
 
 struct TabEntry {
   const char* name;
@@ -28,8 +28,6 @@ public:
   WindowManager();
 
   void Init();
-  void SetActivePaneCount(int count);
-  int GetActivePaneCount() const { return m_activePaneCount; }
 
   // Capture appends a new tab (returns false if MAX_TABS reached)
   bool CaptureByIndex(int paneId, int knownWindowIndex, HWND containerHwnd);
@@ -44,7 +42,7 @@ public:
   // Release all tabs in a pane
   void ReleaseWindow(int paneId);
   void ReleaseAll();
-  void RepositionAll(const SplitterLayout& layout);
+  void RepositionAll(const SplitTree& tree);
   void CheckAlive(HWND containerHwnd);
 
   // Accessors
@@ -60,7 +58,6 @@ public:
 
 private:
   PaneState m_panes[MAX_PANES];
-  int m_activePaneCount;
   bool DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd);
   void DoRelease(TabEntry& tab);
 };

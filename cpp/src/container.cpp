@@ -4,6 +4,8 @@
 #include "debug.h"
 #include "capture_queue.h"
 #include "favorites_manager.h"
+#include "workspace_manager.h"
+#include "context_menu.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -13,64 +15,6 @@
 #define TIMER_ID_CAPTURE 2
 #define TIMER_CAPTURE_INTERVAL 50
 
-// Menu IDs
-#define MENU_RELEASE 2000
-#define MENU_CAPTURE_BY_CLICK 2001
-#define MENU_KNOWN_BASE 1000
-#define MENU_LAYOUT_BASE 3000
-#define MENU_OPEN_WINDOWS_BASE 4000
-#define MENU_OPEN_WINDOWS_MAX 4500
-#define MENU_TAB_CLOSE 5000
-#define MENU_TAB_MOVE_BASE 5100
-#define MENU_WS_LOAD_BASE 6000
-#define MENU_WS_SAVE 6100
-#define MENU_WS_DELETE_BASE 6200
-#define MENU_AUTO_OPEN 7000
-#define MENU_TAB_COLOR_BASE 8000
-#define MENU_FAV_BASE 9000
-#define MENU_FAV_ADD 9100
-#define MENU_FAV_DELETE_BASE 9200
-#define MENU_CLOSE_CONTAINER 9300
-
-// Storage for open windows enumeration
-struct OpenWindowEntry {
-  HWND hwnd;
-  char title[256];
-};
-
-static OpenWindowEntry g_openWindows[256];
-static int g_openWindowCount = 0;
-
-struct EnumOpenWindowsData {
-  HWND containerHwnd;
-  const WindowManager* winMgr;
-};
-
-static BOOL CALLBACK EnumOpenWindowsProc(HWND hwnd, LPARAM lParam)
-{
-  EnumOpenWindowsData* data = (EnumOpenWindowsData*)lParam;
-  if (g_openWindowCount >= 256) return FALSE;
-
-  if (!IsWindowVisible(hwnd)) return TRUE;
-
-  char buf[256];
-  GetWindowText(hwnd, buf, sizeof(buf));
-  if (!buf[0]) return TRUE;
-
-  if (strstr(buf, "toolbar") || strstr(buf, "Toolbar")) return TRUE;
-  if (hwnd == data->containerHwnd) return TRUE;
-  if (hwnd == g_reaperMainHwnd) return TRUE;
-  if (data->winMgr->IsWindowCaptured(hwnd)) return TRUE;
-  if (strlen(buf) < 3) return TRUE;
-
-  g_openWindows[g_openWindowCount].hwnd = hwnd;
-  strncpy(g_openWindows[g_openWindowCount].title, buf, sizeof(g_openWindows[g_openWindowCount].title) - 1);
-  g_openWindows[g_openWindowCount].title[sizeof(g_openWindows[g_openWindowCount].title) - 1] = '\0';
-  g_openWindowCount++;
-
-  return TRUE;
-}
-
 // =========================================================================
 // Constructor / lifecycle
 // =========================================================================
@@ -78,16 +22,15 @@ static BOOL CALLBACK EnumOpenWindowsProc(HWND hwnd, LPARAM lParam)
 ReDockItContainer::ReDockItContainer()
   : m_hwnd(nullptr)
   , m_visible(false)
-  , m_workspaceCount(0)
   , m_captureQueue(new CaptureQueue())
   , m_favMgr(new FavoritesManager())
+  , m_wsMgr(new WorkspaceManager())
 {
   m_captureMode.active = false;
   m_captureMode.targetPaneId = -1;
   memset(&m_dragState, 0, sizeof(m_dragState));
   m_dragState.sourcePaneId = -1;
   m_dragState.highlightPaneId = -1;
-  memset(m_workspaces, 0, sizeof(m_workspaces));
   m_winMgr.Init();
 }
 
@@ -96,6 +39,7 @@ ReDockItContainer::~ReDockItContainer()
   Shutdown();
   delete m_captureQueue;
   delete m_favMgr;
+  delete m_wsMgr;
 }
 
 bool ReDockItContainer::Create()
@@ -154,9 +98,6 @@ void ReDockItContainer::Show()
 void ReDockItContainer::Toggle()
 {
   if (!m_hwnd) { Create(); return; }
-  // Docked windows can't be hidden with ShowWindow — REAPER docker ignores it.
-  // Must do full Shutdown (DockWindowRemove + DestroyWindow).
-  // State is saved/restored via ExtState, so Create() will restore everything.
   Shutdown();
 }
 
@@ -166,7 +107,7 @@ bool ReDockItContainer::IsVisible() const
 }
 
 // =========================================================================
-// RefreshLayout — single source for the layout refresh pattern
+// RefreshLayout
 // =========================================================================
 
 void ReDockItContainer::RefreshLayout()
@@ -174,8 +115,8 @@ void ReDockItContainer::RefreshLayout()
   if (!m_hwnd) return;
   RECT rc;
   GetClientRect(m_hwnd, &rc);
-  m_layout.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
-  m_winMgr.RepositionAll(m_layout);
+  m_tree.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
+  m_winMgr.RepositionAll(m_tree);
   InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
@@ -196,207 +137,139 @@ void ReDockItContainer::StopCaptureTimerIfIdle()
 }
 
 // =========================================================================
-// Layout preset
+// Layout preset / Split / Merge
 // =========================================================================
 
-void ReDockItContainer::SetLayoutPreset(LayoutPreset preset)
+void ReDockItContainer::ApplyPreset(LayoutPreset preset)
 {
   if (preset < 0 || preset >= PRESET_COUNT) return;
 
-  int oldCount = m_layout.GetPaneCount();
-  int newCount = PRESET_PANE_COUNT[preset];
+  // Release all windows before rebuilding tree
+  m_winMgr.ReleaseAll();
 
-  for (int i = newCount; i < oldCount; i++) {
-    m_winMgr.ReleaseWindow(i);
-  }
-
-  m_layout.SetPreset(preset);
-  m_winMgr.SetActivePaneCount(newCount);
+  m_tree.BuildPreset(preset);
 
   RefreshLayout();
   SaveState();
 }
 
+void ReDockItContainer::SplitPane(int paneId, SplitterOrientation orient)
+{
+  int nodeIdx = m_tree.NodeForPane(paneId);
+  if (nodeIdx < 0) return;
+  if (m_tree.GetLeafCount() >= MAX_LEAVES) return;
+
+  m_tree.SplitLeaf(nodeIdx, orient, 0.5f);
+  RefreshLayout();
+  SaveState();
+}
+
+void ReDockItContainer::MergePane(int paneId)
+{
+  int nodeIdx = m_tree.NodeForPane(paneId);
+  if (nodeIdx < 0) return;
+  if (!m_tree.CanMerge(nodeIdx)) return;
+
+  // Release the pane being merged
+  m_winMgr.ReleaseWindow(paneId);
+
+  m_tree.MergeNode(nodeIdx);
+  RefreshLayout();
+  SaveState();
+}
+
 // =========================================================================
-// Save / Load state
+// Save / Load state (delegates to WorkspaceManager for serialization)
 // =========================================================================
 
 void ReDockItContainer::SaveState()
 {
-  if (!g_SetExtState) return;
-
-  char buf[256];
-
-  // Save preset
-  snprintf(buf, sizeof(buf), "%d", (int)m_layout.GetPreset());
-  g_SetExtState(EXT_SECTION, "layout_preset", buf, true);
-
-  // Save ratios
-  int splitterCount = m_layout.GetSplitterCount();
-  for (int i = 0; i < splitterCount; i++) {
-    char key[32];
-    snprintf(key, sizeof(key), "split_ratio_%d", i);
-    snprintf(buf, sizeof(buf), "%.4f", m_layout.GetRatio(i));
-    g_SetExtState(EXT_SECTION, key, buf, true);
-  }
-
-  // Save pane tab assignments
-  int paneCount = m_layout.GetPaneCount();
-  for (int i = 0; i < paneCount; i++) {
-    const PaneState* ps = m_winMgr.GetPaneState(i);
-    if (!ps) continue;
-
-    char key[64];
-    snprintf(key, sizeof(key), "pane_%d_tab_count", i);
-    snprintf(buf, sizeof(buf), "%d", ps->tabCount);
-    g_SetExtState(EXT_SECTION, key, buf, true);
-
-    snprintf(key, sizeof(key), "pane_%d_active_tab", i);
-    snprintf(buf, sizeof(buf), "%d", ps->activeTab);
-    g_SetExtState(EXT_SECTION, key, buf, true);
-
-    for (int t = 0; t < ps->tabCount; t++) {
-      snprintf(key, sizeof(key), "pane_%d_tab_%d", i, t);
-      const TabEntry& tab = ps->tabs[t];
-      if (tab.captured && tab.name) {
-        if (tab.isArbitrary) {
-          char val[280];
-          snprintf(val, sizeof(val), "arb:%s", tab.name);
-          g_SetExtState(EXT_SECTION, key, val, true);
-        } else {
-          g_SetExtState(EXT_SECTION, key, tab.name, true);
-        }
-      } else {
-        g_SetExtState(EXT_SECTION, key, "", true);
-      }
-      // Save tab color
-      snprintf(key, sizeof(key), "pane_%d_tab_%d_color", i, t);
-      snprintf(buf, sizeof(buf), "%d", tab.colorIndex);
-      g_SetExtState(EXT_SECTION, key, buf, true);
-    }
-    // Clear any leftover tabs from previous state
-    for (int t = ps->tabCount; t < MAX_TABS_PER_PANE; t++) {
-      snprintf(key, sizeof(key), "pane_%d_tab_%d", i, t);
-      g_SetExtState(EXT_SECTION, key, "", true);
-      snprintf(key, sizeof(key), "pane_%d_tab_%d_color", i, t);
-      g_SetExtState(EXT_SECTION, key, "", true);
-    }
-  }
+  m_wsMgr->SaveCurrentState(m_tree, m_winMgr);
 }
 
 void ReDockItContainer::LoadState()
 {
   if (!g_GetExtState) return;
 
-  // Load preset
-  const char* presetStr = g_GetExtState(EXT_SECTION, "layout_preset");
-  if (presetStr && presetStr[0]) {
-    int p = atoi(presetStr);
-    if (p >= 0 && p < PRESET_COUNT) {
-      m_layout.SetPreset((LayoutPreset)p);
-      m_winMgr.SetActivePaneCount(PRESET_PANE_COUNT[p]);
+  NodeSnapshot snap[MAX_TREE_NODES];
+  int nodeCount = 0;
+  PaneSnapshot panes[MAX_PANES];
+  bool hasTreeFormat = false;
+
+  m_wsMgr->LoadCurrentState(snap, nodeCount, panes, hasTreeFormat);
+
+  if (hasTreeFormat) {
+    if (nodeCount < 1) {
+      m_tree.Reset();
+    } else {
+      if (!m_tree.LoadSnapshot(snap, nodeCount)) {
+        // Tree was corrupt — Reset happened.  Immediately overwrite ExtState
+        // so the corrupt data doesn't persist across sessions.
+        DBG("[ReDockIt] LoadState: corrupt tree detected, saving clean reset state\n");
+        SaveState();
+      }
     }
+  } else {
+    // Legacy format: load preset + ratios, build tree from preset
+    const char* presetStr = g_GetExtState(EXT_SECTION, "layout_preset");
+    int p = (presetStr && presetStr[0]) ? atoi(presetStr) : 0;
+    if (p < 0 || p >= PRESET_COUNT) p = 0;
+
+    m_tree.BuildPreset((LayoutPreset)p);
   }
 
-  // Load ratios
-  int splitterCount = m_layout.GetSplitterCount();
-  for (int i = 0; i < splitterCount; i++) {
-    char key[32];
-    snprintf(key, sizeof(key), "split_ratio_%d", i);
-    const char* val = g_GetExtState(EXT_SECTION, key);
-    if (val && val[0]) {
-      m_layout.SetRatio(i, (float)atof(val));
-    }
-  }
-
-  // Load pane tabs
-  int paneCount = m_layout.GetPaneCount();
+  // Apply pane tabs from loaded data
   bool needsCaptureTimer = false;
 
-  for (int i = 0; i < paneCount; i++) {
-    char key[64];
+  for (int i = 0; i < MAX_PANES; i++) {
+    if (!m_tree.IsPaneIdUsed(i)) continue;
+    if (panes[i].tabCount == 0) continue;
 
-    snprintf(key, sizeof(key), "pane_%d_tab_count", i);
-    const char* tabCountStr = g_GetExtState(EXT_SECTION, key);
+    for (int t = 0; t < panes[i].tabCount && t < MAX_TABS_PER_PANE; t++) {
+      const char* winName = panes[i].tabs[t].name;
+      if (!winName[0]) continue;
 
-    if (tabCountStr && tabCountStr[0]) {
-      int tabCount = atoi(tabCountStr);
-      if (tabCount < 0) tabCount = 0;
-      if (tabCount > MAX_TABS_PER_PANE) tabCount = MAX_TABS_PER_PANE;
-
-      for (int t = 0; t < tabCount; t++) {
-        snprintf(key, sizeof(key), "pane_%d_tab_%d", i, t);
-        const char* winName = g_GetExtState(EXT_SECTION, key);
-        if (!winName || !winName[0]) continue;
-
-        if (strncmp(winName, "arb:", 4) == 0) {
-          const char* arbName = winName + 4;
-          HWND h = WindowManager::FindReaperWindow(arbName, m_hwnd);
-          if (h) {
-            m_winMgr.CaptureArbitraryWindow(i, h, arbName, m_hwnd);
-          }
-        } else {
-          for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
-            if (strcmp(KNOWN_WINDOWS[j].name, winName) == 0) {
-              HWND h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].searchTitle, m_hwnd);
-              if (!h && KNOWN_WINDOWS[j].altSearchTitle) {
-                h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].altSearchTitle, m_hwnd);
-              }
-              if (!h && g_Main_OnCommand) {
-                // Async capture via queue instead of blocking usleep
-                m_captureQueue->EnqueueKnown(i, j);
-                needsCaptureTimer = true;
-              } else if (h) {
-                m_winMgr.CaptureByIndex(i, j, m_hwnd);
-              }
-              break;
+      if (panes[i].tabs[t].isArbitrary) {
+        HWND h = WindowManager::FindReaperWindow(winName, m_hwnd);
+        if (h) {
+          m_winMgr.CaptureArbitraryWindow(i, h, winName, m_hwnd);
+        }
+      } else {
+        for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
+          if (strcmp(KNOWN_WINDOWS[j].name, winName) == 0) {
+            HWND h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].searchTitle, m_hwnd);
+            if (!h && KNOWN_WINDOWS[j].altSearchTitle) {
+              h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].altSearchTitle, m_hwnd);
             }
-          }
-        }
-      }
-
-      // Restore tab colors
-      int loadedTabs = m_winMgr.GetTabCount(i);
-      for (int t = 0; t < loadedTabs; t++) {
-        snprintf(key, sizeof(key), "pane_%d_tab_%d_color", i, t);
-        const char* colorStr = g_GetExtState(EXT_SECTION, key);
-        if (colorStr && colorStr[0]) {
-          int ci = atoi(colorStr);
-          if (ci >= 0 && ci < TAB_COLOR_COUNT) {
-            m_winMgr.SetTabColor(i, t, ci);
-          }
-        }
-      }
-
-      // Set active tab
-      snprintf(key, sizeof(key), "pane_%d_active_tab", i);
-      const char* activeStr = g_GetExtState(EXT_SECTION, key);
-      if (activeStr && activeStr[0]) {
-        int at = atoi(activeStr);
-        if (at >= 0 && at < m_winMgr.GetTabCount(i)) {
-          m_winMgr.SetActiveTab(i, at);
-        }
-      }
-    } else {
-      // Legacy format: single window per pane
-      snprintf(key, sizeof(key), "pane_%d_window", i);
-      const char* winName = g_GetExtState(EXT_SECTION, key);
-      if (winName && winName[0]) {
-        if (strncmp(winName, "arb:", 4) == 0) {
-          const char* arbName = winName + 4;
-          HWND h = WindowManager::FindReaperWindow(arbName, m_hwnd);
-          if (h) {
-            m_winMgr.CaptureArbitraryWindow(i, h, arbName, m_hwnd);
-          }
-        } else {
-          for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
-            if (strcmp(KNOWN_WINDOWS[j].name, winName) == 0) {
+            if (!h && g_Main_OnCommand) {
+              m_captureQueue->EnqueueKnown(i, j);
+              needsCaptureTimer = true;
+            } else if (h) {
               m_winMgr.CaptureByIndex(i, j, m_hwnd);
-              break;
             }
+            break;
           }
         }
       }
+    }
+
+    // Restore tab colors from ExtState directly (not in PaneSnapshot)
+    int loadedTabs = m_winMgr.GetTabCount(i);
+    for (int t = 0; t < loadedTabs; t++) {
+      char key[64];
+      snprintf(key, sizeof(key), "pane_%d_tab_%d_color", i, t);
+      const char* colorStr = g_GetExtState(EXT_SECTION, key);
+      if (colorStr && colorStr[0]) {
+        int ci = atoi(colorStr);
+        if (ci >= 0 && ci < TAB_COLOR_COUNT) {
+          m_winMgr.SetTabColor(i, t, ci);
+        }
+      }
+    }
+
+    // Set active tab
+    if (panes[i].activeTab >= 0 && panes[i].activeTab < m_winMgr.GetTabCount(i)) {
+      m_winMgr.SetActiveTab(i, panes[i].activeTab);
     }
   }
 
@@ -406,218 +279,49 @@ void ReDockItContainer::LoadState()
 }
 
 // =========================================================================
-// Workspace management
+// Workspace management (delegates to WorkspaceManager)
 // =========================================================================
-
-void ReDockItContainer::LoadWorkspaceList()
-{
-  m_workspaceCount = 0;
-  memset(m_workspaces, 0, sizeof(m_workspaces));
-
-  if (!g_GetExtState) return;
-
-  const char* countStr = g_GetExtState(EXT_SECTION, "ws_count");
-  if (!countStr || !countStr[0]) return;
-
-  int count = atoi(countStr);
-  if (count < 0) count = 0;
-  if (count > MAX_WORKSPACES) count = MAX_WORKSPACES;
-
-  char key[128];
-
-  for (int w = 0; w < count; w++) {
-    snprintf(key, sizeof(key), "ws_%d_name", w);
-    const char* name = g_GetExtState(EXT_SECTION, key);
-    if (!name || !name[0]) continue;
-
-    WorkspaceEntry& ws = m_workspaces[m_workspaceCount];
-    strncpy(ws.name, name, MAX_WORKSPACE_NAME - 1);
-    ws.used = true;
-
-    snprintf(key, sizeof(key), "ws_%d_preset", w);
-    const char* val = g_GetExtState(EXT_SECTION, key);
-    ws.layoutPreset = (val && val[0]) ? atoi(val) : 0;
-
-    for (int r = 0; r < MAX_SPLITTERS; r++) {
-      snprintf(key, sizeof(key), "ws_%d_ratio_%d", w, r);
-      val = g_GetExtState(EXT_SECTION, key);
-      ws.ratios[r] = (val && val[0]) ? (float)atof(val) : 0.5f;
-    }
-
-    snprintf(key, sizeof(key), "ws_%d_pane_count", w);
-    val = g_GetExtState(EXT_SECTION, key);
-    ws.paneCount = (val && val[0]) ? atoi(val) : 0;
-
-    for (int p = 0; p < ws.paneCount && p < MAX_PANES; p++) {
-      snprintf(key, sizeof(key), "ws_%d_pane_%d_tab_count", w, p);
-      val = g_GetExtState(EXT_SECTION, key);
-      ws.panes[p].tabCount = (val && val[0]) ? atoi(val) : 0;
-
-      snprintf(key, sizeof(key), "ws_%d_pane_%d_active_tab", w, p);
-      val = g_GetExtState(EXT_SECTION, key);
-      ws.panes[p].activeTab = (val && val[0]) ? atoi(val) : 0;
-
-      for (int t = 0; t < ws.panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
-        snprintf(key, sizeof(key), "ws_%d_pane_%d_tab_%d", w, p, t);
-        val = g_GetExtState(EXT_SECTION, key);
-        if (val && val[0]) {
-          if (strncmp(val, "arb:", 4) == 0) {
-            ws.panes[p].tabs[t].isArbitrary = true;
-            strncpy(ws.panes[p].tabs[t].name, val + 4, sizeof(ws.panes[p].tabs[t].name) - 1);
-          } else {
-            ws.panes[p].tabs[t].isArbitrary = false;
-            strncpy(ws.panes[p].tabs[t].name, val, sizeof(ws.panes[p].tabs[t].name) - 1);
-            for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
-              if (strcmp(KNOWN_WINDOWS[j].name, val) == 0) {
-                ws.panes[p].tabs[t].toggleAction = KNOWN_WINDOWS[j].toggleActionId;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-    m_workspaceCount++;
-  }
-}
-
-void ReDockItContainer::SaveWorkspaceList()
-{
-  if (!g_SetExtState) return;
-
-  char buf[256];
-  char key[128];
-
-  snprintf(buf, sizeof(buf), "%d", m_workspaceCount);
-  g_SetExtState(EXT_SECTION, "ws_count", buf, true);
-
-  for (int w = 0; w < m_workspaceCount; w++) {
-    WorkspaceEntry& ws = m_workspaces[w];
-
-    snprintf(key, sizeof(key), "ws_%d_name", w);
-    g_SetExtState(EXT_SECTION, key, ws.name, true);
-
-    snprintf(key, sizeof(key), "ws_%d_preset", w);
-    snprintf(buf, sizeof(buf), "%d", ws.layoutPreset);
-    g_SetExtState(EXT_SECTION, key, buf, true);
-
-    for (int r = 0; r < MAX_SPLITTERS; r++) {
-      snprintf(key, sizeof(key), "ws_%d_ratio_%d", w, r);
-      snprintf(buf, sizeof(buf), "%.4f", ws.ratios[r]);
-      g_SetExtState(EXT_SECTION, key, buf, true);
-    }
-
-    snprintf(key, sizeof(key), "ws_%d_pane_count", w);
-    snprintf(buf, sizeof(buf), "%d", ws.paneCount);
-    g_SetExtState(EXT_SECTION, key, buf, true);
-
-    for (int p = 0; p < ws.paneCount && p < MAX_PANES; p++) {
-      snprintf(key, sizeof(key), "ws_%d_pane_%d_tab_count", w, p);
-      snprintf(buf, sizeof(buf), "%d", ws.panes[p].tabCount);
-      g_SetExtState(EXT_SECTION, key, buf, true);
-
-      snprintf(key, sizeof(key), "ws_%d_pane_%d_active_tab", w, p);
-      snprintf(buf, sizeof(buf), "%d", ws.panes[p].activeTab);
-      g_SetExtState(EXT_SECTION, key, buf, true);
-
-      for (int t = 0; t < ws.panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
-        snprintf(key, sizeof(key), "ws_%d_pane_%d_tab_%d", w, p, t);
-        if (ws.panes[p].tabs[t].isArbitrary) {
-          char val[280];
-          snprintf(val, sizeof(val), "arb:%s", ws.panes[p].tabs[t].name);
-          g_SetExtState(EXT_SECTION, key, val, true);
-        } else {
-          g_SetExtState(EXT_SECTION, key, ws.panes[p].tabs[t].name, true);
-        }
-      }
-    }
-  }
-}
 
 void ReDockItContainer::SaveWorkspace(const char* name)
 {
-  if (!name || !name[0]) return;
-
-  int slot = -1;
-  for (int i = 0; i < m_workspaceCount; i++) {
-    if (m_workspaces[i].used && strcmp(m_workspaces[i].name, name) == 0) {
-      slot = i;
-      break;
-    }
-  }
-  if (slot < 0) {
-    if (m_workspaceCount >= MAX_WORKSPACES) return;
-    slot = m_workspaceCount;
-    m_workspaceCount++;
-  }
-
-  WorkspaceEntry& ws = m_workspaces[slot];
-  memset(&ws, 0, sizeof(WorkspaceEntry));
-  strncpy(ws.name, name, MAX_WORKSPACE_NAME - 1);
-  ws.used = true;
-  ws.layoutPreset = (int)m_layout.GetPreset();
-  for (int r = 0; r < MAX_SPLITTERS; r++) {
-    ws.ratios[r] = m_layout.GetRatio(r);
-  }
-  ws.paneCount = m_layout.GetPaneCount();
-
-  for (int p = 0; p < ws.paneCount && p < MAX_PANES; p++) {
-    const PaneState* ps = m_winMgr.GetPaneState(p);
-    if (!ps) continue;
-    ws.panes[p].tabCount = ps->tabCount;
-    ws.panes[p].activeTab = ps->activeTab;
-    for (int t = 0; t < ps->tabCount && t < MAX_TABS_PER_PANE; t++) {
-      const TabEntry& tab = ps->tabs[t];
-      ws.panes[p].tabs[t].isArbitrary = tab.isArbitrary;
-      ws.panes[p].tabs[t].toggleAction = tab.toggleAction;
-      if (tab.name) {
-        strncpy(ws.panes[p].tabs[t].name, tab.name, sizeof(ws.panes[p].tabs[t].name) - 1);
-      }
-    }
-  }
-
-  SaveWorkspaceList();
+  m_wsMgr->Save(name, m_tree, m_winMgr);
 }
 
 void ReDockItContainer::LoadWorkspace(const char* name)
 {
   if (!name || !name[0]) return;
 
-  int slot = -1;
-  for (int i = 0; i < m_workspaceCount; i++) {
-    if (m_workspaces[i].used && strcmp(m_workspaces[i].name, name) == 0) {
-      slot = i;
-      break;
-    }
-  }
-  if (slot < 0) return;
-
-  WorkspaceEntry& ws = m_workspaces[slot];
+  const WorkspaceEntry* ws = m_wsMgr->Find(name);
+  if (!ws) return;
 
   m_winMgr.ReleaseAll();
 
-  int lp = ws.layoutPreset;
-  if (lp < 0 || lp >= PRESET_COUNT) lp = 0;
-  m_layout.SetPreset((LayoutPreset)lp);
-  m_winMgr.SetActivePaneCount(PRESET_PANE_COUNT[lp]);
-  for (int r = 0; r < MAX_SPLITTERS; r++) {
-    m_layout.SetRatio(r, ws.ratios[r]);
+  if (ws->treeVersion == 2) {
+    m_tree.LoadSnapshot(ws->nodes, ws->nodeCount);
+  } else {
+    // Legacy format
+    int lp = ws->layoutPreset;
+    if (lp < 0 || lp >= PRESET_COUNT) lp = 0;
+    m_tree.BuildPreset((LayoutPreset)lp);
   }
 
   {
     RECT rc;
     GetClientRect(m_hwnd, &rc);
-    m_layout.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
+    m_tree.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
   }
 
   bool needsCaptureTimer = false;
 
-  for (int p = 0; p < ws.paneCount && p < MAX_PANES; p++) {
-    for (int t = 0; t < ws.panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
-      const char* wname = ws.panes[p].tabs[t].name;
+  for (int p = 0; p < MAX_PANES; p++) {
+    if (ws->panes[p].tabCount == 0) continue;
+    if (!m_tree.IsPaneIdUsed(p)) continue;
+
+    for (int t = 0; t < ws->panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
+      const char* wname = ws->panes[p].tabs[t].name;
       if (!wname[0]) continue;
 
-      if (ws.panes[p].tabs[t].isArbitrary) {
+      if (ws->panes[p].tabs[t].isArbitrary) {
         HWND h = WindowManager::FindReaperWindow(wname, m_hwnd);
         if (h) {
           m_winMgr.CaptureArbitraryWindow(p, h, wname, m_hwnd);
@@ -640,7 +344,7 @@ void ReDockItContainer::LoadWorkspace(const char* name)
         }
       }
     }
-    int at = ws.panes[p].activeTab;
+    int at = ws->panes[p].activeTab;
     if (at >= 0 && at < m_winMgr.GetTabCount(p)) {
       m_winMgr.SetActiveTab(p, at);
     }
@@ -650,26 +354,14 @@ void ReDockItContainer::LoadWorkspace(const char* name)
     StartCaptureTimer();
   }
 
-  m_winMgr.RepositionAll(m_layout);
+  m_winMgr.RepositionAll(m_tree);
   InvalidateRect(m_hwnd, nullptr, TRUE);
   SaveState();
 }
 
 void ReDockItContainer::DeleteWorkspace(const char* name)
 {
-  if (!name || !name[0]) return;
-
-  for (int i = 0; i < m_workspaceCount; i++) {
-    if (m_workspaces[i].used && strcmp(m_workspaces[i].name, name) == 0) {
-      for (int j = i; j < m_workspaceCount - 1; j++) {
-        m_workspaces[j] = m_workspaces[j + 1];
-      }
-      m_workspaceCount--;
-      memset(&m_workspaces[m_workspaceCount], 0, sizeof(WorkspaceEntry));
-      SaveWorkspaceList();
-      return;
-    }
-  }
+  m_wsMgr->Delete(name);
 }
 
 // =========================================================================
@@ -678,44 +370,9 @@ void ReDockItContainer::DeleteWorkspace(const char* name)
 
 int ReDockItContainer::PaneAtPoint(int x, int y) const
 {
-  int count = m_layout.GetPaneCount();
-  for (int i = 0; i < count; i++) {
-    const RECT& r = m_layout.GetPane(i).rect;
-    if (x >= r.left && x < r.right && y >= r.top && y < r.bottom)
-      return i;
-  }
-  return -1;
-}
-
-void ReDockItContainer::BuildOpenWindowsSubmenu(HMENU submenu, int baseId)
-{
-  g_openWindowCount = 0;
-  EnumOpenWindowsData data = { m_hwnd, &m_winMgr };
-  EnumWindows(EnumOpenWindowsProc, (LPARAM)&data);
-
-  if (g_openWindowCount == 0) {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE;
-    mi.fType = MFT_STRING;
-    mi.fState = MFS_GRAYED;
-    mi.wID = baseId;
-    mi.dwTypeData = (char*)"(No windows found)";
-    InsertMenuItem(submenu, 0, TRUE, &mi);
-    return;
-  }
-
-  int maxItems = g_openWindowCount;
-  if (maxItems > (MENU_OPEN_WINDOWS_MAX - baseId)) maxItems = MENU_OPEN_WINDOWS_MAX - baseId;
-  for (int i = 0; i < maxItems; i++) {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_ID | MIIM_TYPE;
-    mi.fType = MFT_STRING;
-    mi.wID = baseId + i;
-    mi.dwTypeData = g_openWindows[i].title;
-    InsertMenuItem(submenu, i, TRUE, &mi);
-  }
+  int nodeIdx = m_tree.LeafAtPoint(x, y);
+  if (nodeIdx < 0) return -1;
+  return m_tree.GetPaneId(nodeIdx);
 }
 
 // =========================================================================
@@ -727,7 +384,7 @@ int ReDockItContainer::TabHitTest(int paneId, int x, int y) const
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || ps->tabCount == 0) return -1;
 
-  const RECT& paneRect = m_layout.GetPane(paneId).rect;
+  const RECT& paneRect = m_tree.GetPaneRect(paneId);
   int tabBarTop = paneRect.top;
   int tabBarBottom = tabBarTop + TAB_BAR_HEIGHT;
 
@@ -749,7 +406,7 @@ bool ReDockItContainer::IsOnTabCloseButton(int paneId, int tabIndex, int x, int 
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || tabIndex < 0 || tabIndex >= ps->tabCount) return false;
 
-  const RECT& paneRect = m_layout.GetPane(paneId).rect;
+  const RECT& paneRect = m_tree.GetPaneRect(paneId);
   int tabBarTop = paneRect.top;
 
   int paneWidth = paneRect.right - paneRect.left;
@@ -860,8 +517,8 @@ void ReDockItContainer::CancelTabDrag()
 
 void ReDockItContainer::OnSize(int cx, int cy)
 {
-  m_layout.Recalculate(cx, cy);
-  m_winMgr.RepositionAll(m_layout);
+  m_tree.Recalculate(cx, cy);
+  m_winMgr.RepositionAll(m_tree);
   InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
@@ -877,23 +534,25 @@ void ReDockItContainer::OnPaint(HDC hdc)
 
   // Draw splitter bars
   HBRUSH splitterBrush = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
-  int splitterCount = m_layout.GetSplitterCount();
-  for (int i = 0; i < splitterCount; i++) {
-    RECT sr = m_layout.GetSplitter(i).rect;
-    FillRect(hdc, &sr, splitterBrush);
+  for (int i = 0; i < m_tree.GetBranchCount(); i++) {
+    const SplitNode& n = m_tree.GetNode(m_tree.GetBranchList()[i]);
+    FillRect(hdc, &n.splitterRect, splitterBrush);
   }
   DeleteObject(splitterBrush);
 
   // Draw pane tab bars or empty headers
-  int paneCount = m_layout.GetPaneCount();
-  for (int i = 0; i < paneCount; i++) {
-    const Pane& pane = m_layout.GetPane(i);
-    const PaneState* ps = m_winMgr.GetPaneState(i);
+  for (int i = 0; i < m_tree.GetLeafCount(); i++) {
+    int nodeIdx = m_tree.GetLeafList()[i];
+    int paneId = m_tree.GetPaneId(nodeIdx);
+    if (paneId < 0 || paneId >= MAX_PANES) continue;
+
+    const RECT& paneRect = m_tree.GetPaneRect(paneId);
+    const PaneState* ps = m_winMgr.GetPaneState(paneId);
 
     if (ps && ps->tabCount > 0) {
-      DrawTabBar(hdc, i, pane.rect);
+      DrawTabBar(hdc, paneId, paneRect);
     } else {
-      RECT headerRect = pane.rect;
+      RECT headerRect = paneRect;
       headerRect.bottom = headerRect.top + TAB_BAR_HEIGHT;
 
       HBRUSH headerBrush = CreateSolidBrush(RGB(50, 50, 50));
@@ -903,16 +562,17 @@ void ReDockItContainer::OnPaint(HDC hdc)
       SetBkMode(hdc, TRANSPARENT);
       SetTextColor(hdc, RGB(180, 180, 180));
       char headerText[128];
-      if (m_captureMode.active && m_captureMode.targetPaneId == i) {
+      if (m_captureMode.active && m_captureMode.targetPaneId == paneId) {
         snprintf(headerText, sizeof(headerText), " Click a window to capture...");
       } else {
+        // Show sequential visual index (1-based position in leaf list)
         snprintf(headerText, sizeof(headerText), " Pane %d (click to assign)", i + 1);
       }
       RECT headerTextRect = headerRect;
       headerTextRect.left += 4;
       DrawText(hdc, headerText, -1, &headerTextRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-      RECT contentRect = pane.rect;
+      RECT contentRect = paneRect;
       contentRect.top += TAB_BAR_HEIGHT;
       SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
       DrawText(hdc, "Click header to assign a window", -1, &contentRect,
@@ -922,7 +582,7 @@ void ReDockItContainer::OnPaint(HDC hdc)
 
   // Drag highlight
   if (m_dragState.active && m_dragState.dragStarted && m_dragState.highlightPaneId >= 0) {
-    const RECT& r = m_layout.GetPane(m_dragState.highlightPaneId).rect;
+    const RECT& r = m_tree.GetPaneRect(m_dragState.highlightPaneId);
     HPEN highlightPen = CreatePen(PS_SOLID, 3, RGB(80, 140, 255));
     HPEN oldPen = (HPEN)SelectObject(hdc, highlightPen);
     HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -1006,11 +666,11 @@ void ReDockItContainer::OnMouseMove(int x, int y)
     return;
   }
 
-  if (m_layout.IsDragging()) {
+  if (m_tree.IsDragging()) {
     RECT rc;
     GetClientRect(m_hwnd, &rc);
-    m_layout.Drag(x, y, rc.right - rc.left, rc.bottom - rc.top);
-    m_winMgr.RepositionAll(m_layout);
+    m_tree.Drag(x, y, rc.right - rc.left, rc.bottom - rc.top);
+    m_winMgr.RepositionAll(m_tree);
     InvalidateRect(m_hwnd, nullptr, TRUE);
   }
 }
@@ -1022,8 +682,8 @@ void ReDockItContainer::OnLButtonUp(int x, int y)
     return;
   }
 
-  if (m_layout.IsDragging()) {
-    m_layout.EndDrag();
+  if (m_tree.IsDragging()) {
+    m_tree.EndDrag();
     ReleaseCapture();
     SaveState();
   }
@@ -1031,9 +691,6 @@ void ReDockItContainer::OnLButtonUp(int x, int y)
 
 void ReDockItContainer::OnTimer()
 {
-  // Detect if REAPER docker hid us (user clicked X on docker tab)
-  // REAPER's docker X doesn't send WM_CLOSE to SWELL dialogs on macOS,
-  // so we poll visibility and do a full shutdown when hidden.
   if (m_hwnd && !IsWindowVisible(m_hwnd)) {
     DBG("[ReDockIt] OnTimer: window no longer visible, shutting down\n");
     Shutdown();
@@ -1043,6 +700,10 @@ void ReDockItContainer::OnTimer()
   m_winMgr.CheckAlive(m_hwnd);
 }
 
+// =========================================================================
+// Context menu (builds menu via context_menu module, dispatches commands)
+// =========================================================================
+
 void ReDockItContainer::OnContextMenu(int x, int y)
 {
   int paneId = PaneAtPoint(x, y);
@@ -1051,102 +712,15 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   // Check if click is on tab bar
   int tabIdx = TabHitTest(paneId, x, y);
   if (tabIdx >= 0) {
-    // Tab-specific right-click menu
-    HMENU menu = CreatePopupMenu();
+    HMENU menu = BuildTabContextMenu(paneId, tabIdx, m_tree, m_winMgr);
     if (!menu) return;
-
-    int insertPos = 0;
-
-    // Close Tab
-    {
-      MENUITEMINFO mi = {};
-      mi.cbSize = sizeof(mi);
-      mi.fMask = MIIM_ID | MIIM_TYPE;
-      mi.fType = MFT_STRING;
-      mi.wID = MENU_TAB_CLOSE;
-      mi.dwTypeData = (char*)"Close Tab";
-      InsertMenuItem(menu, insertPos++, TRUE, &mi);
-    }
-
-    // Color submenu
-    {
-      MENUITEMINFO sep = {};
-      sep.cbSize = sizeof(sep);
-      sep.fMask = MIIM_TYPE;
-      sep.fType = MFT_SEPARATOR;
-      InsertMenuItem(menu, insertPos++, TRUE, &sep);
-
-      HMENU colorMenu = CreatePopupMenu();
-      if (colorMenu) {
-        const TabEntry* tab = m_winMgr.GetTab(paneId, tabIdx);
-        int currentColor = tab ? tab->colorIndex : 0;
-
-        for (int c = 0; c < TAB_COLOR_COUNT; c++) {
-          MENUITEMINFO cmi = {};
-          cmi.cbSize = sizeof(cmi);
-          cmi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE;
-          cmi.fType = MFT_STRING;
-          cmi.wID = MENU_TAB_COLOR_BASE + c;
-          cmi.dwTypeData = (char*)TAB_COLORS[c].name;
-          cmi.fState = (c == currentColor) ? MFS_CHECKED : 0;
-          InsertMenuItem(colorMenu, c, TRUE, &cmi);
-        }
-
-        MENUITEMINFO colorItem = {};
-        colorItem.cbSize = sizeof(colorItem);
-        colorItem.fMask = MIIM_SUBMENU | MIIM_TYPE;
-        colorItem.fType = MFT_STRING;
-        colorItem.hSubMenu = colorMenu;
-        colorItem.dwTypeData = (char*)"Color";
-        InsertMenuItem(menu, insertPos++, TRUE, &colorItem);
-      }
-    }
-
-    // Move to other panes
-    int paneCount = m_layout.GetPaneCount();
-    if (paneCount > 1) {
-      MENUITEMINFO sep2 = {};
-      sep2.cbSize = sizeof(sep2);
-      sep2.fMask = MIIM_TYPE;
-      sep2.fType = MFT_SEPARATOR;
-      InsertMenuItem(menu, insertPos++, TRUE, &sep2);
-
-      for (int p = 0; p < paneCount; p++) {
-        if (p == paneId) continue;
-        if (m_winMgr.GetTabCount(p) >= MAX_TABS_PER_PANE) continue;
-
-        char label[64];
-        snprintf(label, sizeof(label), "Move to Pane %d", p + 1);
-        MENUITEMINFO mi = {};
-        mi.cbSize = sizeof(mi);
-        mi.fMask = MIIM_ID | MIIM_TYPE;
-        mi.fType = MFT_STRING;
-        mi.wID = MENU_TAB_MOVE_BASE + p;
-        mi.dwTypeData = label;
-        InsertMenuItem(menu, insertPos++, TRUE, &mi);
-      }
-    }
 
     POINT pt = {x, y};
     ClientToScreen(m_hwnd, &pt);
     int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, m_hwnd, nullptr);
     DestroyMenu(menu);
 
-    if (cmd == MENU_TAB_CLOSE) {
-      m_winMgr.CloseTab(paneId, tabIdx);
-      RefreshLayout();
-      SaveState();
-    } else if (cmd >= MENU_TAB_MOVE_BASE && cmd < MENU_TAB_MOVE_BASE + MAX_PANES) {
-      int targetPane = cmd - MENU_TAB_MOVE_BASE;
-      m_winMgr.MoveTab(paneId, tabIdx, targetPane);
-      RefreshLayout();
-      SaveState();
-    } else if (cmd >= MENU_TAB_COLOR_BASE && cmd < MENU_TAB_COLOR_BASE + TAB_COLOR_COUNT) {
-      int newColor = cmd - MENU_TAB_COLOR_BASE;
-      m_winMgr.SetTabColor(paneId, tabIdx, newColor);
-      InvalidateRect(m_hwnd, nullptr, TRUE);
-      SaveState();
-    }
+    HandleTabMenuCommand(cmd, paneId, tabIdx);
     return;
   }
 
@@ -1158,312 +732,48 @@ void ReDockItContainer::OnContextMenu(int x, int y)
     return;
   }
 
-  HMENU menu = CreatePopupMenu();
+  m_wsMgr->LoadList();
+  HMENU menu = BuildPaneContextMenu(paneId, m_hwnd, m_tree, m_winMgr, *m_favMgr, *m_wsMgr);
   if (!menu) return;
 
-  int insertPos = 0;
-
-  // --- Layout submenu ---
-  HMENU layoutMenu = CreatePopupMenu();
-  if (layoutMenu) {
-    for (int i = 0; i < PRESET_COUNT; i++) {
-      MENUITEMINFO mi = {};
-      mi.cbSize = sizeof(mi);
-      mi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE;
-      mi.fType = MFT_STRING;
-      mi.wID = MENU_LAYOUT_BASE + i;
-      mi.dwTypeData = (char*)PRESET_NAMES[i];
-      mi.fState = (i == (int)m_layout.GetPreset()) ? MFS_CHECKED : 0;
-      InsertMenuItem(layoutMenu, i, TRUE, &mi);
-    }
-
-    MENUITEMINFO layoutMi = {};
-    layoutMi.cbSize = sizeof(layoutMi);
-    layoutMi.fMask = MIIM_SUBMENU | MIIM_TYPE;
-    layoutMi.fType = MFT_STRING;
-    layoutMi.hSubMenu = layoutMenu;
-    layoutMi.dwTypeData = (char*)"Layout";
-    InsertMenuItem(menu, insertPos++, TRUE, &layoutMi);
-  }
-
-  // --- Workspaces submenu ---
-  LoadWorkspaceList();
-  HMENU wsMenu = CreatePopupMenu();
-  if (wsMenu) {
-    int wsPos = 0;
-
-    for (int i = 0; i < m_workspaceCount; i++) {
-      if (!m_workspaces[i].used) continue;
-      MENUITEMINFO mi = {};
-      mi.cbSize = sizeof(mi);
-      mi.fMask = MIIM_ID | MIIM_TYPE;
-      mi.fType = MFT_STRING;
-      mi.wID = MENU_WS_LOAD_BASE + i;
-      mi.dwTypeData = m_workspaces[i].name;
-      InsertMenuItem(wsMenu, wsPos++, TRUE, &mi);
-    }
-
-    if (m_workspaceCount > 0) {
-      MENUITEMINFO sep = {};
-      sep.cbSize = sizeof(sep);
-      sep.fMask = MIIM_TYPE;
-      sep.fType = MFT_SEPARATOR;
-      InsertMenuItem(wsMenu, wsPos++, TRUE, &sep);
-    }
-
-    {
-      MENUITEMINFO mi = {};
-      mi.cbSize = sizeof(mi);
-      mi.fMask = MIIM_ID | MIIM_TYPE;
-      mi.fType = MFT_STRING;
-      mi.wID = MENU_WS_SAVE;
-      mi.dwTypeData = (char*)"Save Current...";
-      InsertMenuItem(wsMenu, wsPos++, TRUE, &mi);
-    }
-
-    if (m_workspaceCount > 0) {
-      MENUITEMINFO sep = {};
-      sep.cbSize = sizeof(sep);
-      sep.fMask = MIIM_TYPE;
-      sep.fType = MFT_SEPARATOR;
-      InsertMenuItem(wsMenu, wsPos++, TRUE, &sep);
-
-      HMENU delMenu = CreatePopupMenu();
-      if (delMenu) {
-        for (int i = 0; i < m_workspaceCount; i++) {
-          if (!m_workspaces[i].used) continue;
-          MENUITEMINFO mi = {};
-          mi.cbSize = sizeof(mi);
-          mi.fMask = MIIM_ID | MIIM_TYPE;
-          mi.fType = MFT_STRING;
-          mi.wID = MENU_WS_DELETE_BASE + i;
-          mi.dwTypeData = m_workspaces[i].name;
-          InsertMenuItem(delMenu, i, TRUE, &mi);
-        }
-
-        MENUITEMINFO delMi = {};
-        delMi.cbSize = sizeof(delMi);
-        delMi.fMask = MIIM_SUBMENU | MIIM_TYPE;
-        delMi.fType = MFT_STRING;
-        delMi.hSubMenu = delMenu;
-        delMi.dwTypeData = (char*)"Delete";
-        InsertMenuItem(wsMenu, wsPos++, TRUE, &delMi);
-      }
-    }
-
-    MENUITEMINFO wsMi = {};
-    wsMi.cbSize = sizeof(wsMi);
-    wsMi.fMask = MIIM_SUBMENU | MIIM_TYPE;
-    wsMi.fType = MFT_STRING;
-    wsMi.hSubMenu = wsMenu;
-    wsMi.dwTypeData = (char*)"Workspaces";
-    InsertMenuItem(menu, insertPos++, TRUE, &wsMi);
-  }
-
-  // --- Favorites submenu ---
-  {
-    HMENU favMenu = CreatePopupMenu();
-    if (favMenu) {
-      int favPos = 0;
-      int favCount = m_favMgr->GetCount();
-
-      for (int i = 0; i < favCount; i++) {
-        const FavoriteEntry& fav = m_favMgr->Get(i);
-        MENUITEMINFO mi = {};
-        mi.cbSize = sizeof(mi);
-        mi.fMask = MIIM_ID | MIIM_TYPE;
-        mi.fType = MFT_STRING;
-        mi.wID = MENU_FAV_BASE + i;
-        mi.dwTypeData = (char*)fav.name;
-        InsertMenuItem(favMenu, favPos++, TRUE, &mi);
-      }
-
-      if (favCount > 0) {
-        MENUITEMINFO sep = {};
-        sep.cbSize = sizeof(sep);
-        sep.fMask = MIIM_TYPE;
-        sep.fType = MFT_SEPARATOR;
-        InsertMenuItem(favMenu, favPos++, TRUE, &sep);
-      }
-
-      // Add Current Tab
-      const TabEntry* activeTab = m_winMgr.GetActiveTabEntry(paneId);
-      {
-        MENUITEMINFO mi = {};
-        mi.cbSize = sizeof(mi);
-        mi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE;
-        mi.fType = MFT_STRING;
-        mi.wID = MENU_FAV_ADD;
-        mi.dwTypeData = (char*)"Add Current Tab";
-        mi.fState = (activeTab && activeTab->captured) ? 0 : MFS_GRAYED;
-        InsertMenuItem(favMenu, favPos++, TRUE, &mi);
-      }
-
-      // Delete submenu
-      if (favCount > 0) {
-        MENUITEMINFO sep = {};
-        sep.cbSize = sizeof(sep);
-        sep.fMask = MIIM_TYPE;
-        sep.fType = MFT_SEPARATOR;
-        InsertMenuItem(favMenu, favPos++, TRUE, &sep);
-
-        HMENU favDelMenu = CreatePopupMenu();
-        if (favDelMenu) {
-          for (int i = 0; i < favCount; i++) {
-            const FavoriteEntry& fav = m_favMgr->Get(i);
-            MENUITEMINFO mi = {};
-            mi.cbSize = sizeof(mi);
-            mi.fMask = MIIM_ID | MIIM_TYPE;
-            mi.fType = MFT_STRING;
-            mi.wID = MENU_FAV_DELETE_BASE + i;
-            mi.dwTypeData = (char*)fav.name;
-            InsertMenuItem(favDelMenu, i, TRUE, &mi);
-          }
-
-          MENUITEMINFO delMi = {};
-          delMi.cbSize = sizeof(delMi);
-          delMi.fMask = MIIM_SUBMENU | MIIM_TYPE;
-          delMi.fType = MFT_STRING;
-          delMi.hSubMenu = favDelMenu;
-          delMi.dwTypeData = (char*)"Delete";
-          InsertMenuItem(favMenu, favPos++, TRUE, &delMi);
-        }
-      }
-
-      MENUITEMINFO favMi = {};
-      favMi.cbSize = sizeof(favMi);
-      favMi.fMask = MIIM_SUBMENU | MIIM_TYPE;
-      favMi.fType = MFT_STRING;
-      favMi.hSubMenu = favMenu;
-      favMi.dwTypeData = (char*)"Favorites";
-      InsertMenuItem(menu, insertPos++, TRUE, &favMi);
-    }
-  }
-
-  // --- Separator ---
-  {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_TYPE;
-    mi.fType = MFT_SEPARATOR;
-    InsertMenuItem(menu, insertPos++, TRUE, &mi);
-  }
-
-  // --- Known windows ---
-  for (int i = 0; i < NUM_KNOWN_WINDOWS; i++) {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_ID | MIIM_TYPE;
-    mi.fType = MFT_STRING;
-    mi.wID = MENU_KNOWN_BASE + i;
-    mi.dwTypeData = (char*)KNOWN_WINDOWS[i].name;
-    InsertMenuItem(menu, insertPos++, TRUE, &mi);
-  }
-
-  // --- Separator ---
-  {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_TYPE;
-    mi.fType = MFT_SEPARATOR;
-    InsertMenuItem(menu, insertPos++, TRUE, &mi);
-  }
-
-  // --- Open Windows submenu ---
-  HMENU openWinMenu = CreatePopupMenu();
-  if (openWinMenu) {
-    BuildOpenWindowsSubmenu(openWinMenu, MENU_OPEN_WINDOWS_BASE);
-
-    MENUITEMINFO owMi = {};
-    owMi.cbSize = sizeof(owMi);
-    owMi.fMask = MIIM_SUBMENU | MIIM_TYPE;
-    owMi.fType = MFT_STRING;
-    owMi.hSubMenu = openWinMenu;
-    owMi.dwTypeData = (char*)"Open Windows";
-    InsertMenuItem(menu, insertPos++, TRUE, &owMi);
-  }
-
-  // --- Capture by Click ---
-  {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_ID | MIIM_TYPE;
-    mi.fType = MFT_STRING;
-    mi.wID = MENU_CAPTURE_BY_CLICK;
-    mi.dwTypeData = (char*)"Capture by Click";
-    InsertMenuItem(menu, insertPos++, TRUE, &mi);
-  }
-
-  // --- Separator + Close ---
-  {
-    const TabEntry* activeTab = m_winMgr.GetActiveTabEntry(paneId);
-    if (activeTab && activeTab->captured) {
-      MENUITEMINFO sep = {};
-      sep.cbSize = sizeof(sep);
-      sep.fMask = MIIM_TYPE;
-      sep.fType = MFT_SEPARATOR;
-      InsertMenuItem(menu, insertPos++, TRUE, &sep);
-
-      MENUITEMINFO mi = {};
-      mi.cbSize = sizeof(mi);
-      mi.fMask = MIIM_ID | MIIM_TYPE;
-      mi.fType = MFT_STRING;
-      mi.wID = MENU_RELEASE;
-      mi.dwTypeData = (char*)"Close";
-      InsertMenuItem(menu, insertPos++, TRUE, &mi);
-    }
-  }
-
-  // --- Separator + Auto-open toggle ---
-  {
-    MENUITEMINFO sep = {};
-    sep.cbSize = sizeof(sep);
-    sep.fMask = MIIM_TYPE;
-    sep.fType = MFT_SEPARATOR;
-    InsertMenuItem(menu, insertPos++, TRUE, &sep);
-  }
-  {
-    bool autoOpen = IsAutoOpenEnabled();
-
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE;
-    mi.fType = MFT_STRING;
-    mi.wID = MENU_AUTO_OPEN;
-    mi.dwTypeData = (char*)"Auto-open on startup";
-    mi.fState = autoOpen ? MFS_CHECKED : 0;
-    InsertMenuItem(menu, insertPos++, TRUE, &mi);
-  }
-
-  // --- Close ReDockIt ---
-  {
-    MENUITEMINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    mi.fMask = MIIM_ID | MIIM_TYPE;
-    mi.fType = MFT_STRING;
-    mi.wID = MENU_CLOSE_CONTAINER;
-    mi.dwTypeData = (char*)"Close ReDockIt";
-    InsertMenuItem(menu, insertPos++, TRUE, &mi);
-  }
-
-  // Show menu
   POINT pt = {x, y};
   ClientToScreen(m_hwnd, &pt);
-
   int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, m_hwnd, nullptr);
   DestroyMenu(menu);
 
-  // --- Handle commands ---
+  HandlePaneMenuCommand(cmd, paneId);
+}
 
+void ReDockItContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
+{
+  if (cmd == MenuIds::TAB_CLOSE) {
+    m_winMgr.CloseTab(paneId, tabIdx);
+    RefreshLayout();
+    SaveState();
+  } else if (cmd >= MenuIds::TAB_MOVE_BASE && cmd < MenuIds::TAB_MOVE_BASE + MAX_PANES) {
+    int targetPane = cmd - MenuIds::TAB_MOVE_BASE;
+    m_winMgr.MoveTab(paneId, tabIdx, targetPane);
+    RefreshLayout();
+    SaveState();
+  } else if (cmd >= MenuIds::TAB_COLOR_BASE && cmd < MenuIds::TAB_COLOR_BASE + TAB_COLOR_COUNT) {
+    int newColor = cmd - MenuIds::TAB_COLOR_BASE;
+    m_winMgr.SetTabColor(paneId, tabIdx, newColor);
+    InvalidateRect(m_hwnd, nullptr, TRUE);
+    SaveState();
+  }
+}
+
+void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
+{
   // Layout preset
-  if (cmd >= MENU_LAYOUT_BASE && cmd < MENU_LAYOUT_BASE + PRESET_COUNT) {
-    SetLayoutPreset((LayoutPreset)(cmd - MENU_LAYOUT_BASE));
+  if (cmd >= MenuIds::LAYOUT_BASE && cmd < MenuIds::LAYOUT_BASE + PRESET_COUNT) {
+    ApplyPreset((LayoutPreset)(cmd - MenuIds::LAYOUT_BASE));
     return;
   }
 
   // Known window selection — async capture
-  if (cmd >= MENU_KNOWN_BASE && cmd < MENU_KNOWN_BASE + NUM_KNOWN_WINDOWS) {
-    int idx = cmd - MENU_KNOWN_BASE;
+  if (cmd >= MenuIds::KNOWN_BASE && cmd < MenuIds::KNOWN_BASE + NUM_KNOWN_WINDOWS) {
+    int idx = cmd - MenuIds::KNOWN_BASE;
 
     DBG("[ReDockIt] Menu: selected '%s' for pane %d\n", KNOWN_WINDOWS[idx].name, paneId);
 
@@ -1484,12 +794,13 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   }
 
   // Open Windows selection
-  if (cmd >= MENU_OPEN_WINDOWS_BASE && cmd < MENU_OPEN_WINDOWS_MAX) {
-    int idx = cmd - MENU_OPEN_WINDOWS_BASE;
-    if (idx >= 0 && idx < g_openWindowCount) {
-      HWND targetHwnd = g_openWindows[idx].hwnd;
+  if (cmd >= MenuIds::OPEN_WINDOWS_BASE && cmd < MenuIds::OPEN_WINDOWS_MAX) {
+    int idx = cmd - MenuIds::OPEN_WINDOWS_BASE;
+    if (idx >= 0 && idx < GetOpenWindowCount()) {
+      const OpenWindowEntry& owe = GetOpenWindow(idx);
+      HWND targetHwnd = owe.hwnd;
       char title[256];
-      strncpy(title, g_openWindows[idx].title, sizeof(title) - 1);
+      strncpy(title, owe.title, sizeof(title) - 1);
       title[sizeof(title) - 1] = '\0';
 
       HWND dockFrame = nullptr;
@@ -1519,7 +830,7 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   }
 
   // Capture by Click
-  if (cmd == MENU_CAPTURE_BY_CLICK) {
+  if (cmd == MenuIds::CAPTURE_BY_CLICK) {
     m_captureMode.active = true;
     m_captureMode.targetPaneId = paneId;
     InvalidateRect(m_hwnd, nullptr, TRUE);
@@ -1527,8 +838,26 @@ void ReDockItContainer::OnContextMenu(int x, int y)
     return;
   }
 
+  // Split Horizontal
+  if (cmd == MenuIds::SPLIT_H) {
+    SplitPane(paneId, SPLIT_HORIZONTAL);
+    return;
+  }
+
+  // Split Vertical
+  if (cmd == MenuIds::SPLIT_V) {
+    SplitPane(paneId, SPLIT_VERTICAL);
+    return;
+  }
+
+  // Merge with Sibling
+  if (cmd == MenuIds::MERGE) {
+    MergePane(paneId);
+    return;
+  }
+
   // Close (release active tab only)
-  if (cmd == MENU_RELEASE) {
+  if (cmd == MenuIds::RELEASE) {
     const PaneState* ps = m_winMgr.GetPaneState(paneId);
     if (ps && ps->activeTab >= 0) {
       m_winMgr.CloseTab(paneId, ps->activeTab);
@@ -1539,27 +868,26 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   }
 
   // Auto-open toggle
-  if (cmd == MENU_AUTO_OPEN) {
+  if (cmd == MenuIds::AUTO_OPEN) {
     SetAutoOpenEnabled(!IsAutoOpenEnabled());
     return;
   }
 
   // Close ReDockIt container
-  if (cmd == MENU_CLOSE_CONTAINER) {
+  if (cmd == MenuIds::CLOSE_CONTAINER) {
     Shutdown();
     return;
   }
 
   // Favorites — capture from favorite
-  if (cmd >= MENU_FAV_BASE && cmd < MENU_FAV_BASE + MAX_FAVORITES) {
-    int favIdx = cmd - MENU_FAV_BASE;
+  if (cmd >= MenuIds::FAV_BASE && cmd < MenuIds::FAV_BASE + MAX_FAVORITES) {
+    int favIdx = cmd - MenuIds::FAV_BASE;
     if (favIdx >= 0 && favIdx < m_favMgr->GetCount()) {
       const FavoriteEntry& fav = m_favMgr->Get(favIdx);
 
       HWND found = WindowManager::FindReaperWindow(fav.searchTitle, m_hwnd);
       if (found) {
         if (fav.isKnown) {
-          // Find known window index
           for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
             if (strcmp(KNOWN_WINDOWS[j].name, fav.name) == 0) {
               m_winMgr.CaptureByIndex(paneId, j, m_hwnd);
@@ -1572,7 +900,6 @@ void ReDockItContainer::OnContextMenu(int x, int y)
         RefreshLayout();
         SaveState();
       } else if (fav.toggleAction > 0) {
-        // Async capture
         if (fav.isKnown) {
           for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
             if (strcmp(KNOWN_WINDOWS[j].name, fav.name) == 0) {
@@ -1592,7 +919,7 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   }
 
   // Favorites — add current tab
-  if (cmd == MENU_FAV_ADD) {
+  if (cmd == MenuIds::FAV_ADD) {
     const TabEntry* activeTab = m_winMgr.GetActiveTabEntry(paneId);
     if (activeTab && activeTab->captured && activeTab->name) {
       m_favMgr->Add(activeTab->name,
@@ -1604,28 +931,31 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   }
 
   // Favorites — delete
-  if (cmd >= MENU_FAV_DELETE_BASE && cmd < MENU_FAV_DELETE_BASE + MAX_FAVORITES) {
-    int favIdx = cmd - MENU_FAV_DELETE_BASE;
+  if (cmd >= MenuIds::FAV_DELETE_BASE && cmd < MenuIds::FAV_DELETE_BASE + MAX_FAVORITES) {
+    int favIdx = cmd - MenuIds::FAV_DELETE_BASE;
     m_favMgr->Remove(favIdx);
     return;
   }
 
   // Workspace load
-  if (cmd >= MENU_WS_LOAD_BASE && cmd < MENU_WS_LOAD_BASE + MAX_WORKSPACES) {
-    int idx = cmd - MENU_WS_LOAD_BASE;
-    if (idx >= 0 && idx < m_workspaceCount && m_workspaces[idx].used) {
-      LoadWorkspace(m_workspaces[idx].name);
+  if (cmd >= MenuIds::WS_LOAD_BASE && cmd < MenuIds::WS_LOAD_BASE + MAX_WORKSPACES) {
+    int idx = cmd - MenuIds::WS_LOAD_BASE;
+    if (idx >= 0 && idx < m_wsMgr->GetCount()) {
+      const WorkspaceEntry& ws = m_wsMgr->Get(idx);
+      if (ws.used) {
+        LoadWorkspace(ws.name);
+      }
     }
     return;
   }
 
   // Workspace save
-  if (cmd == MENU_WS_SAVE) {
+  if (cmd == MenuIds::WS_SAVE) {
     if (g_GetUserInputs) {
-      char name[MAX_WORKSPACE_NAME] = "";
-      if (g_GetUserInputs("Save Workspace", 1, "Name:", name, sizeof(name))) {
-        if (name[0]) {
-          SaveWorkspace(name);
+      char wsName[MAX_WORKSPACE_NAME] = "";
+      if (g_GetUserInputs("Save Workspace", 1, "Name:", wsName, sizeof(wsName))) {
+        if (wsName[0]) {
+          SaveWorkspace(wsName);
         }
       }
     }
@@ -1633,10 +963,13 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   }
 
   // Workspace delete
-  if (cmd >= MENU_WS_DELETE_BASE && cmd < MENU_WS_DELETE_BASE + MAX_WORKSPACES) {
-    int idx = cmd - MENU_WS_DELETE_BASE;
-    if (idx >= 0 && idx < m_workspaceCount && m_workspaces[idx].used) {
-      DeleteWorkspace(m_workspaces[idx].name);
+  if (cmd >= MenuIds::WS_DELETE_BASE && cmd < MenuIds::WS_DELETE_BASE + MAX_WORKSPACES) {
+    int idx = cmd - MenuIds::WS_DELETE_BASE;
+    if (idx >= 0 && idx < m_wsMgr->GetCount()) {
+      const WorkspaceEntry& ws = m_wsMgr->Get(idx);
+      if (ws.used) {
+        DeleteWorkspace(ws.name);
+      }
     }
     return;
   }
@@ -1686,35 +1019,41 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
         int x = (short)LOWORD(lParam);
         int y = (short)HIWORD(lParam);
 
-        int splitter = self->m_layout.HitTestSplitter(x, y);
+        int splitter = self->m_tree.HitTestSplitter(x, y);
         if (splitter >= 0) {
-          self->m_layout.StartDrag(splitter);
+          self->m_tree.StartDrag(splitter);
           SetCapture(hwnd);
           return 0;
         }
 
-        int paneCount = self->m_layout.GetPaneCount();
-        for (int i = 0; i < paneCount; i++) {
-          int tabIdx = self->TabHitTest(i, x, y);
+        // Check tab clicks across all leaf panes
+        for (int li = 0; li < self->m_tree.GetLeafCount(); li++) {
+          int paneId = self->m_tree.GetPaneId(self->m_tree.GetLeafList()[li]);
+          if (paneId < 0) continue;
+
+          int tabIdx = self->TabHitTest(paneId, x, y);
           if (tabIdx >= 0) {
-            if (self->IsOnTabCloseButton(i, tabIdx, x, y)) {
-              self->m_winMgr.CloseTab(i, tabIdx);
+            if (self->IsOnTabCloseButton(paneId, tabIdx, x, y)) {
+              self->m_winMgr.CloseTab(paneId, tabIdx);
               self->RefreshLayout();
               self->SaveState();
             } else {
-              self->m_winMgr.SetActiveTab(i, tabIdx);
+              self->m_winMgr.SetActiveTab(paneId, tabIdx);
               self->RefreshLayout();
-              self->StartTabDrag(i, tabIdx, x, y);
+              self->StartTabDrag(paneId, tabIdx, x, y);
             }
             return 0;
           }
         }
 
         // Check if click is on an empty pane's header bar
-        for (int i = 0; i < paneCount; i++) {
-          const PaneState* ps = self->m_winMgr.GetPaneState(i);
+        for (int li = 0; li < self->m_tree.GetLeafCount(); li++) {
+          int paneId = self->m_tree.GetPaneId(self->m_tree.GetLeafList()[li]);
+          if (paneId < 0) continue;
+
+          const PaneState* ps = self->m_winMgr.GetPaneState(paneId);
           if (!ps || ps->tabCount == 0) {
-            const RECT& r = self->m_layout.GetPane(i).rect;
+            const RECT& r = self->m_tree.GetPaneRect(paneId);
             if (x >= r.left && x < r.right && y >= r.top && y < r.top + TAB_BAR_HEIGHT) {
               self->OnContextMenu(x, y);
               return 0;
@@ -1751,10 +1090,9 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
         POINT pt;
         GetCursorPos(&pt);
         ScreenToClient(hwnd, &pt);
-        int splitter = self->m_layout.HitTestSplitter(pt.x, pt.y);
+        int splitter = self->m_tree.HitTestSplitter(pt.x, pt.y);
         if (splitter >= 0) {
-          const SplitterInfo& si = self->m_layout.GetSplitter(splitter);
-          if (si.orient == SPLIT_VERTICAL) {
+          if (self->m_tree.GetSplitterOrientation(splitter) == SPLIT_VERTICAL) {
             SetCursor(LoadCursor(nullptr, IDC_SIZEWE));
           } else {
             SetCursor(LoadCursor(nullptr, IDC_SIZENS));
@@ -1877,7 +1215,6 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
     }
 
     case WM_COMMAND: {
-      // REAPER docker sends WM_COMMAND with IDCANCEL (2) when user clicks X on docker tab
       if (self && LOWORD(wParam) == IDCANCEL) {
         self->Shutdown();
         return 0;

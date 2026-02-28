@@ -1,0 +1,495 @@
+#include "workspace_manager.h"
+#include "config.h"
+#include "globals.h"
+#include "debug.h"
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+
+WorkspaceManager::WorkspaceManager()
+  : m_count(0)
+{
+  memset(m_workspaces, 0, sizeof(m_workspaces));
+}
+
+const WorkspaceEntry& WorkspaceManager::Get(int index) const
+{
+  static WorkspaceEntry empty = {};
+  if (index < 0 || index >= m_count) return empty;
+  return m_workspaces[index];
+}
+
+const WorkspaceEntry* WorkspaceManager::Find(const char* name) const
+{
+  if (!name || !name[0]) return nullptr;
+  for (int i = 0; i < m_count; i++) {
+    if (m_workspaces[i].used && strcmp(m_workspaces[i].name, name) == 0) {
+      return &m_workspaces[i];
+    }
+  }
+  return nullptr;
+}
+
+// =========================================================================
+// Shared serialization helpers
+// =========================================================================
+
+void WorkspaceManager::WriteTreeNodes(const char* prefix, const NodeSnapshot* snap, int count)
+{
+  if (!g_SetExtState) return;
+
+  char buf[256];
+  char key[128];
+
+  snprintf(key, sizeof(key), "%stree_node_count", prefix);
+  snprintf(buf, sizeof(buf), "%d", count);
+  g_SetExtState(EXT_SECTION, key, buf, true);
+
+  for (int i = 0; i < count; i++) {
+    snprintf(key, sizeof(key), "%stn_%d_type", prefix, i);
+    snprintf(buf, sizeof(buf), "%d", (int)snap[i].type);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    snprintf(key, sizeof(key), "%stn_%d_orient", prefix, i);
+    snprintf(buf, sizeof(buf), "%d", (int)snap[i].orient);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    snprintf(key, sizeof(key), "%stn_%d_ratio", prefix, i);
+    snprintf(buf, sizeof(buf), "%.4f", snap[i].ratio);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    snprintf(key, sizeof(key), "%stn_%d_childA", prefix, i);
+    snprintf(buf, sizeof(buf), "%d", snap[i].childA);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    snprintf(key, sizeof(key), "%stn_%d_childB", prefix, i);
+    snprintf(buf, sizeof(buf), "%d", snap[i].childB);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    snprintf(key, sizeof(key), "%stn_%d_paneId", prefix, i);
+    snprintf(buf, sizeof(buf), "%d", snap[i].paneId);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    snprintf(key, sizeof(key), "%stn_%d_parent", prefix, i);
+    snprintf(buf, sizeof(buf), "%d", snap[i].parent);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+  }
+
+  // Clear any stale nodes beyond current count
+  for (int i = count; i < MAX_TREE_NODES; i++) {
+    snprintf(key, sizeof(key), "%stn_%d_type", prefix, i);
+    const char* val = g_GetExtState ? g_GetExtState(EXT_SECTION, key) : nullptr;
+    if (!val || !val[0]) break;  // no more stale data
+    g_SetExtState(EXT_SECTION, key, "", true);
+    snprintf(key, sizeof(key), "%stn_%d_orient", prefix, i);
+    g_SetExtState(EXT_SECTION, key, "", true);
+    snprintf(key, sizeof(key), "%stn_%d_ratio", prefix, i);
+    g_SetExtState(EXT_SECTION, key, "", true);
+    snprintf(key, sizeof(key), "%stn_%d_childA", prefix, i);
+    g_SetExtState(EXT_SECTION, key, "", true);
+    snprintf(key, sizeof(key), "%stn_%d_childB", prefix, i);
+    g_SetExtState(EXT_SECTION, key, "", true);
+    snprintf(key, sizeof(key), "%stn_%d_paneId", prefix, i);
+    g_SetExtState(EXT_SECTION, key, "", true);
+    snprintf(key, sizeof(key), "%stn_%d_parent", prefix, i);
+    g_SetExtState(EXT_SECTION, key, "", true);
+  }
+}
+
+int WorkspaceManager::ReadTreeNodes(const char* prefix, NodeSnapshot* snap)
+{
+  if (!g_GetExtState) return 0;
+
+  char key[128];
+  snprintf(key, sizeof(key), "%stree_node_count", prefix);
+  const char* ncStr = g_GetExtState(EXT_SECTION, key);
+  int count = (ncStr && ncStr[0]) ? atoi(ncStr) : 0;
+  if (count < 0) count = 0;
+  if (count > MAX_TREE_NODES) count = MAX_TREE_NODES;
+
+  for (int i = 0; i < count; i++) {
+    const char* val;
+
+    snprintf(key, sizeof(key), "%stn_%d_type", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].type = (val && val[0]) ? (SplitNodeType)atoi(val) : NODE_EMPTY;
+
+    snprintf(key, sizeof(key), "%stn_%d_orient", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].orient = (val && val[0]) ? (SplitterOrientation)atoi(val) : SPLIT_VERTICAL;
+
+    snprintf(key, sizeof(key), "%stn_%d_ratio", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].ratio = (val && val[0]) ? (float)atof(val) : 0.5f;
+
+    snprintf(key, sizeof(key), "%stn_%d_childA", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].childA = (val && val[0]) ? atoi(val) : -1;
+
+    snprintf(key, sizeof(key), "%stn_%d_childB", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].childB = (val && val[0]) ? atoi(val) : -1;
+
+    snprintf(key, sizeof(key), "%stn_%d_paneId", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].paneId = (val && val[0]) ? atoi(val) : -1;
+
+    snprintf(key, sizeof(key), "%stn_%d_parent", prefix, i);
+    val = g_GetExtState(EXT_SECTION, key);
+    snap[i].parent = (val && val[0]) ? atoi(val) : -1;
+  }
+
+  return count;
+}
+
+void WorkspaceManager::WritePaneTabs(const char* prefix, const PaneSnapshot* panes,
+                                     int maxPanes, const WindowManager* winMgr)
+{
+  if (!g_SetExtState) return;
+
+  char buf[256];
+  char key[128];
+
+  for (int p = 0; p < maxPanes && p < MAX_PANES; p++) {
+    if (winMgr) {
+      // Saving from live state — read from WindowManager
+      const PaneState* ps = winMgr->GetPaneState(p);
+      if (!ps) continue;
+
+      snprintf(key, sizeof(key), "%spane_%d_tab_count", prefix, p);
+      snprintf(buf, sizeof(buf), "%d", ps->tabCount);
+      g_SetExtState(EXT_SECTION, key, buf, true);
+
+      snprintf(key, sizeof(key), "%spane_%d_active_tab", prefix, p);
+      snprintf(buf, sizeof(buf), "%d", ps->activeTab);
+      g_SetExtState(EXT_SECTION, key, buf, true);
+
+      for (int t = 0; t < ps->tabCount; t++) {
+        snprintf(key, sizeof(key), "%spane_%d_tab_%d", prefix, p, t);
+        const TabEntry& tab = ps->tabs[t];
+        if (tab.captured && tab.name) {
+          if (tab.isArbitrary) {
+            char val[280];
+            snprintf(val, sizeof(val), "arb:%s", tab.name);
+            g_SetExtState(EXT_SECTION, key, val, true);
+          } else {
+            g_SetExtState(EXT_SECTION, key, tab.name, true);
+          }
+        } else {
+          g_SetExtState(EXT_SECTION, key, "", true);
+        }
+        // Save tab color
+        snprintf(key, sizeof(key), "%spane_%d_tab_%d_color", prefix, p, t);
+        snprintf(buf, sizeof(buf), "%d", tab.colorIndex);
+        g_SetExtState(EXT_SECTION, key, buf, true);
+      }
+      // Clear any leftover tabs from previous state
+      for (int t = ps->tabCount; t < MAX_TABS_PER_PANE; t++) {
+        snprintf(key, sizeof(key), "%spane_%d_tab_%d", prefix, p, t);
+        g_SetExtState(EXT_SECTION, key, "", true);
+        snprintf(key, sizeof(key), "%spane_%d_tab_%d_color", prefix, p, t);
+        g_SetExtState(EXT_SECTION, key, "", true);
+      }
+    } else {
+      // Saving from snapshot data
+      snprintf(key, sizeof(key), "%spane_%d_tab_count", prefix, p);
+      snprintf(buf, sizeof(buf), "%d", panes[p].tabCount);
+      g_SetExtState(EXT_SECTION, key, buf, true);
+
+      snprintf(key, sizeof(key), "%spane_%d_active_tab", prefix, p);
+      snprintf(buf, sizeof(buf), "%d", panes[p].activeTab);
+      g_SetExtState(EXT_SECTION, key, buf, true);
+
+      for (int t = 0; t < panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
+        snprintf(key, sizeof(key), "%spane_%d_tab_%d", prefix, p, t);
+        if (panes[p].tabs[t].isArbitrary) {
+          char val[280];
+          snprintf(val, sizeof(val), "arb:%s", panes[p].tabs[t].name);
+          g_SetExtState(EXT_SECTION, key, val, true);
+        } else {
+          g_SetExtState(EXT_SECTION, key, panes[p].tabs[t].name, true);
+        }
+      }
+    }
+  }
+}
+
+void WorkspaceManager::ReadPaneTabs(const char* prefix, PaneSnapshot* panes, int maxPanes)
+{
+  if (!g_GetExtState) return;
+
+  char key[128];
+
+  for (int p = 0; p < maxPanes && p < MAX_PANES; p++) {
+    snprintf(key, sizeof(key), "%spane_%d_tab_count", prefix, p);
+    const char* val = g_GetExtState(EXT_SECTION, key);
+    panes[p].tabCount = (val && val[0]) ? atoi(val) : 0;
+
+    snprintf(key, sizeof(key), "%spane_%d_active_tab", prefix, p);
+    val = g_GetExtState(EXT_SECTION, key);
+    panes[p].activeTab = (val && val[0]) ? atoi(val) : 0;
+
+    for (int t = 0; t < panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
+      snprintf(key, sizeof(key), "%spane_%d_tab_%d", prefix, p, t);
+      val = g_GetExtState(EXT_SECTION, key);
+      if (val && val[0]) {
+        if (strncmp(val, "arb:", 4) == 0) {
+          panes[p].tabs[t].isArbitrary = true;
+          strncpy(panes[p].tabs[t].name, val + 4, sizeof(panes[p].tabs[t].name) - 1);
+        } else {
+          panes[p].tabs[t].isArbitrary = false;
+          strncpy(panes[p].tabs[t].name, val, sizeof(panes[p].tabs[t].name) - 1);
+          for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
+            if (strcmp(KNOWN_WINDOWS[j].name, val) == 0) {
+              panes[p].tabs[t].toggleAction = KNOWN_WINDOWS[j].toggleActionId;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// =========================================================================
+// Current state persistence
+// =========================================================================
+
+void WorkspaceManager::SaveCurrentState(const SplitTree& tree, const WindowManager& winMgr)
+{
+  if (!g_SetExtState) return;
+
+  // Save tree version marker
+  g_SetExtState(EXT_SECTION, "tree_version", "2", true);
+
+  // Save tree nodes
+  NodeSnapshot snap[MAX_TREE_NODES];
+  int nodeCount = 0;
+  tree.SaveSnapshot(snap, nodeCount);
+
+  // Validate snapshot before saving — branches must have distinct children
+  bool corrupt = false;
+  for (int i = 0; i < nodeCount; i++) {
+    if (snap[i].type == NODE_BRANCH && snap[i].childA == snap[i].childB) {
+      DBG("[ReDockIt] SaveCurrentState: WARNING — node %d has childA==childB==%d (corrupt tree)\n",
+          i, snap[i].childA);
+      corrupt = true;
+    }
+  }
+  if (corrupt) {
+    DBG("[ReDockIt] SaveCurrentState: corrupt tree detected, skipping save\n");
+    return;
+  }
+  WriteTreeNodes("", snap, nodeCount);
+
+  // Save pane tab assignments for all used paneIds
+  WritePaneTabs("", nullptr, MAX_PANES, &winMgr);
+}
+
+bool WorkspaceManager::LoadCurrentState(NodeSnapshot* outSnap, int& outNodeCount,
+                                        PaneSnapshot outPanes[MAX_PANES],
+                                        bool& outHasTreeFormat) const
+{
+  if (!g_GetExtState) return false;
+
+  // Check tree version
+  const char* treeVer = g_GetExtState(EXT_SECTION, "tree_version");
+  outHasTreeFormat = (treeVer && strcmp(treeVer, "2") == 0);
+
+  if (outHasTreeFormat) {
+    memset(outSnap, 0, sizeof(NodeSnapshot) * MAX_TREE_NODES);
+    outNodeCount = ReadTreeNodes("", outSnap);
+    if (outNodeCount < 1) return false;
+  } else {
+    // Legacy format: caller must handle preset loading
+    outNodeCount = 0;
+  }
+
+  // Read pane tabs (format is the same regardless of tree version)
+  memset(outPanes, 0, sizeof(PaneSnapshot) * MAX_PANES);
+  ReadPaneTabs("", outPanes, MAX_PANES);
+
+  return true;
+}
+
+// =========================================================================
+// Named workspace CRUD
+// =========================================================================
+
+void WorkspaceManager::Save(const char* name, const SplitTree& tree, const WindowManager& winMgr)
+{
+  if (!name || !name[0]) return;
+
+  int slot = -1;
+  for (int i = 0; i < m_count; i++) {
+    if (m_workspaces[i].used && strcmp(m_workspaces[i].name, name) == 0) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0) {
+    if (m_count >= MAX_WORKSPACES) return;
+    slot = m_count;
+    m_count++;
+  }
+
+  WorkspaceEntry& ws = m_workspaces[slot];
+  memset(&ws, 0, sizeof(WorkspaceEntry));
+  strncpy(ws.name, name, MAX_WORKSPACE_NAME - 1);
+  ws.used = true;
+  ws.treeVersion = 2;
+
+  // Save tree snapshot
+  tree.SaveSnapshot(ws.nodes, ws.nodeCount);
+
+  // Save pane tab data
+  for (int p = 0; p < MAX_PANES; p++) {
+    const PaneState* ps = winMgr.GetPaneState(p);
+    if (!ps) continue;
+    ws.panes[p].tabCount = ps->tabCount;
+    ws.panes[p].activeTab = ps->activeTab;
+    for (int t = 0; t < ps->tabCount && t < MAX_TABS_PER_PANE; t++) {
+      const TabEntry& tab = ps->tabs[t];
+      ws.panes[p].tabs[t].isArbitrary = tab.isArbitrary;
+      ws.panes[p].tabs[t].toggleAction = tab.toggleAction;
+      if (tab.name) {
+        strncpy(ws.panes[p].tabs[t].name, tab.name, sizeof(ws.panes[p].tabs[t].name) - 1);
+      }
+    }
+  }
+
+  SaveList();
+}
+
+void WorkspaceManager::Delete(const char* name)
+{
+  if (!name || !name[0]) return;
+
+  for (int i = 0; i < m_count; i++) {
+    if (m_workspaces[i].used && strcmp(m_workspaces[i].name, name) == 0) {
+      for (int j = i; j < m_count - 1; j++) {
+        m_workspaces[j] = m_workspaces[j + 1];
+      }
+      m_count--;
+      memset(&m_workspaces[m_count], 0, sizeof(WorkspaceEntry));
+      SaveList();
+      return;
+    }
+  }
+}
+
+// =========================================================================
+// Workspace list persistence
+// =========================================================================
+
+void WorkspaceManager::LoadList()
+{
+  m_count = 0;
+  memset(m_workspaces, 0, sizeof(m_workspaces));
+
+  if (!g_GetExtState) return;
+
+  const char* countStr = g_GetExtState(EXT_SECTION, "ws_count");
+  if (!countStr || !countStr[0]) return;
+
+  int count = atoi(countStr);
+  if (count < 0) count = 0;
+  if (count > MAX_WORKSPACES) count = MAX_WORKSPACES;
+
+  char key[128];
+
+  for (int w = 0; w < count; w++) {
+    snprintf(key, sizeof(key), "ws_%d_name", w);
+    const char* name = g_GetExtState(EXT_SECTION, key);
+    if (!name || !name[0]) continue;
+
+    WorkspaceEntry& ws = m_workspaces[m_count];
+    memset(&ws, 0, sizeof(WorkspaceEntry));
+    strncpy(ws.name, name, MAX_WORKSPACE_NAME - 1);
+    ws.used = true;
+
+    // Check if workspace uses tree format
+    snprintf(key, sizeof(key), "ws_%d_tree_version", w);
+    const char* tvStr = g_GetExtState(EXT_SECTION, key);
+    ws.treeVersion = (tvStr && tvStr[0]) ? atoi(tvStr) : 0;
+
+    if (ws.treeVersion == 2) {
+      // Load tree snapshot using shared helper
+      char prefix[32];
+      snprintf(prefix, sizeof(prefix), "ws_%d_", w);
+      ws.nodeCount = ReadTreeNodes(prefix, ws.nodes);
+    } else {
+      // Legacy format
+      snprintf(key, sizeof(key), "ws_%d_preset", w);
+      const char* val = g_GetExtState(EXT_SECTION, key);
+      ws.layoutPreset = (val && val[0]) ? atoi(val) : 0;
+
+      for (int r = 0; r < MAX_SPLITTERS; r++) {
+        snprintf(key, sizeof(key), "ws_%d_ratio_%d", w, r);
+        val = g_GetExtState(EXT_SECTION, key);
+        ws.ratios[r] = (val && val[0]) ? (float)atof(val) : 0.5f;
+      }
+
+      snprintf(key, sizeof(key), "ws_%d_pane_count", w);
+      val = g_GetExtState(EXT_SECTION, key);
+      ws.paneCount = (val && val[0]) ? atoi(val) : 0;
+    }
+
+    // Load pane tab data using shared helper
+    int maxPanes = (ws.treeVersion == 2) ? MAX_PANES : (ws.paneCount > 0 ? ws.paneCount : 4);
+    char prefix[32];
+    snprintf(prefix, sizeof(prefix), "ws_%d_", w);
+    ReadPaneTabs(prefix, ws.panes, maxPanes);
+
+    m_count++;
+  }
+}
+
+void WorkspaceManager::SaveList()
+{
+  if (!g_SetExtState) return;
+
+  char buf[256];
+  char key[128];
+
+  snprintf(buf, sizeof(buf), "%d", m_count);
+  g_SetExtState(EXT_SECTION, "ws_count", buf, true);
+
+  for (int w = 0; w < m_count; w++) {
+    WorkspaceEntry& ws = m_workspaces[w];
+
+    snprintf(key, sizeof(key), "ws_%d_name", w);
+    g_SetExtState(EXT_SECTION, key, ws.name, true);
+
+    snprintf(key, sizeof(key), "ws_%d_tree_version", w);
+    snprintf(buf, sizeof(buf), "%d", ws.treeVersion);
+    g_SetExtState(EXT_SECTION, key, buf, true);
+
+    if (ws.treeVersion == 2) {
+      char prefix[32];
+      snprintf(prefix, sizeof(prefix), "ws_%d_", w);
+      WriteTreeNodes(prefix, ws.nodes, ws.nodeCount);
+    } else {
+      // Legacy format
+      snprintf(key, sizeof(key), "ws_%d_preset", w);
+      snprintf(buf, sizeof(buf), "%d", ws.layoutPreset);
+      g_SetExtState(EXT_SECTION, key, buf, true);
+
+      for (int r = 0; r < MAX_SPLITTERS; r++) {
+        snprintf(key, sizeof(key), "ws_%d_ratio_%d", w, r);
+        snprintf(buf, sizeof(buf), "%.4f", ws.ratios[r]);
+        g_SetExtState(EXT_SECTION, key, buf, true);
+      }
+
+      snprintf(key, sizeof(key), "ws_%d_pane_count", w);
+      snprintf(buf, sizeof(buf), "%d", ws.paneCount);
+      g_SetExtState(EXT_SECTION, key, buf, true);
+    }
+
+    // Save pane tab data using shared helper
+    int maxPanes = (ws.treeVersion == 2) ? MAX_PANES : (ws.paneCount > 0 ? ws.paneCount : 4);
+    char prefix[32];
+    snprintf(prefix, sizeof(prefix), "ws_%d_", w);
+    WritePaneTabs(prefix, ws.panes, maxPanes, nullptr);
+  }
+}

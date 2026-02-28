@@ -1,5 +1,5 @@
 #pragma once
-#include "splitter.h"
+#include "split_tree.h"
 #include "window_manager.h"
 
 // Capture mode: user clicks any window to grab it into a pane
@@ -18,26 +18,9 @@ struct DragState {
   bool dragStarted;
 };
 
-// Workspace preset
-struct WorkspaceEntry {
-  char name[MAX_WORKSPACE_NAME];
-  bool used;
-  int layoutPreset;
-  float ratios[MAX_SPLITTERS];
-  int paneCount;
-  struct PaneSnapshot {
-    int tabCount;
-    int activeTab;
-    struct TabSnapshot {
-      bool isArbitrary;
-      char name[256];
-      int toggleAction;
-    } tabs[MAX_TABS_PER_PANE];
-  } panes[MAX_PANES];
-};
-
 class CaptureQueue;
 class FavoritesManager;
+class WorkspaceManager;
 
 class ReDockItContainer {
 public:
@@ -50,7 +33,10 @@ public:
   void Toggle();
   bool IsVisible() const;
 
-  void SetLayoutPreset(LayoutPreset preset);
+  void ApplyPreset(LayoutPreset preset);
+  void SplitPane(int paneId, SplitterOrientation orient);
+  void MergePane(int paneId);
+  int NodeForPane(int paneId) const { return m_tree.NodeForPane(paneId); }
 
   void SaveState();
   void LoadState();
@@ -59,25 +45,22 @@ public:
   void SaveWorkspace(const char* name);
   void LoadWorkspace(const char* name);
   void DeleteWorkspace(const char* name);
-  void LoadWorkspaceList();
-  void SaveWorkspaceList();
 
   HWND GetHwnd() const { return m_hwnd; }
 
-  SplitterLayout& GetLayout() { return m_layout; }
+  SplitTree& GetTree() { return m_tree; }
   WindowManager& GetWinMgr() { return m_winMgr; }
 
 private:
   HWND m_hwnd;
-  SplitterLayout m_layout;
+  SplitTree m_tree;
   WindowManager m_winMgr;
   bool m_visible;
   CaptureMode m_captureMode;
   DragState m_dragState;
-  WorkspaceEntry m_workspaces[MAX_WORKSPACES];
-  int m_workspaceCount;
   CaptureQueue* m_captureQueue;
   FavoritesManager* m_favMgr;
+  WorkspaceManager* m_wsMgr;
 
   void RefreshLayout();
   void StartCaptureTimer();
@@ -102,7 +85,10 @@ private:
   void CancelTabDrag();
 
   int PaneAtPoint(int x, int y) const;
-  void BuildOpenWindowsSubmenu(HMENU submenu, int baseId);
+
+  // Context menu command dispatch
+  void HandleTabMenuCommand(int cmd, int paneId, int tabIdx);
+  void HandlePaneMenuCommand(int cmd, int paneId);
 
   static INT_PTR CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

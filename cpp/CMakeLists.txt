@@ -12,10 +12,12 @@ add_library(reaper_redockit SHARED
   src/main.cpp
   src/globals.cpp
   src/container.cpp
-  src/splitter.cpp
+  src/split_tree.cpp
   src/window_manager.cpp
   src/capture_queue.cpp
   src/favorites_manager.cpp
+  src/workspace_manager.cpp
+  src/context_menu.cpp
 )
 
 target_include_directories(reaper_redockit PRIVATE

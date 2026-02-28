@@ -1,8 +1,10 @@
 #pragma once
 
 // Layout constants
-static const int MAX_PANES = 4;
-static const int MAX_SPLITTERS = 3;
+static const int MAX_PANES = 16;
+static const int MAX_TREE_NODES = 31;  // full binary tree depth 4: 16 leaves + 15 branches
+static const int MAX_LEAVES = 16;
+static const int MAX_SPLITTERS = 3;    // kept for backward compat (old save format)
 static const int SPLITTER_WIDTH = 5;
 static const int MIN_PANE_SIZE = 50;
 static const int PANE_HEADER_HEIGHT = 18;
@@ -50,8 +52,8 @@ static const char* PRESET_NAMES[] = {
     "Top + Bottom Split"
 };
 
+// Legacy preset pane counts (used for backward compat loading)
 static const int PRESET_PANE_COUNT[] = { 3, 2, 3, 4, 3 };
-static const int PRESET_SPLITTER_COUNT[] = { 2, 1, 2, 2, 2 };
 
 // Splitter orientation
 enum SplitterOrientation { SPLIT_VERTICAL, SPLIT_HORIZONTAL };
