@@ -4,6 +4,22 @@ All notable changes to ReDockIT will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-03-01
+
+### Fixed
+- **Startup deadlock**: REAPER could hang when loading a project with ReDockIT docked. The capture queue now defers `Main_OnCommand` calls during `LoadState()` to avoid calling REAPER APIs while the project is still loading.
+
+### Changed
+- Replaced raw `new`/`delete` with `std::unique_ptr` for safer resource management
+- Replaced all `strncpy` calls with `safe_strncpy` helper for consistent null-termination
+- Extracted magic numbers (colors, geometry, timing) into named constants in `config.h`
+- Merged duplicate `FindWindowEnumProc`/`FindChildWindowEnumProc` into single function
+- Debug logging is now conditional on `CMAKE_BUILD_TYPE=Debug` (no longer always enabled)
+- Added `-Wshadow` and `-Wconversion` compiler warnings
+
+### Removed
+- Dead code: unused `BuildLists()` and `IsAnyCaptured()` methods
+
 ## [1.0.0] - 2025-03-01
 
 ### Added
