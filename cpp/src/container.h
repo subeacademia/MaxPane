@@ -1,6 +1,7 @@
 #pragma once
 #include "split_tree.h"
 #include "window_manager.h"
+#include <memory>
 
 // Capture mode: user clicks any window to grab it into a pane
 struct CaptureMode {
@@ -58,9 +59,9 @@ private:
   bool m_visible;
   CaptureMode m_captureMode;
   DragState m_dragState;
-  CaptureQueue* m_captureQueue;
-  FavoritesManager* m_favMgr;
-  WorkspaceManager* m_wsMgr;
+  std::unique_ptr<CaptureQueue> m_captureQueue;
+  std::unique_ptr<FavoritesManager> m_favMgr;
+  std::unique_ptr<WorkspaceManager> m_wsMgr;
   int m_shutdownGraceTicks;  // countdown after capture completes before allowing shutdown
 
   void RefreshLayout();

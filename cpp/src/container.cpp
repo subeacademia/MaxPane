@@ -22,9 +22,9 @@
 ReDockItContainer::ReDockItContainer()
   : m_hwnd(nullptr)
   , m_visible(false)
-  , m_captureQueue(new CaptureQueue())
-  , m_favMgr(new FavoritesManager())
-  , m_wsMgr(new WorkspaceManager())
+  , m_captureQueue(std::make_unique<CaptureQueue>())
+  , m_favMgr(std::make_unique<FavoritesManager>())
+  , m_wsMgr(std::make_unique<WorkspaceManager>())
   , m_shutdownGraceTicks(0)
 {
   m_captureMode.active = false;
@@ -38,9 +38,6 @@ ReDockItContainer::ReDockItContainer()
 ReDockItContainer::~ReDockItContainer()
 {
   Shutdown();
-  delete m_captureQueue;
-  delete m_favMgr;
-  delete m_wsMgr;
 }
 
 bool ReDockItContainer::Create()

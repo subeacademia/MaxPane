@@ -30,8 +30,9 @@
 #include "reaper_plugin_functions.h"
 #include "globals.h"
 #include "container.h"
+#include <memory>
 
-static ReDockItContainer* g_container = nullptr;
+static std::unique_ptr<ReDockItContainer> g_container;
 static int g_cmdId = 0;
 
 // Deferred startup timer — fires on REAPER main loop, auto-opens container if enabled
@@ -43,7 +44,7 @@ static void startupTimerFunc()
 
   if (IsAutoOpenEnabled()) {
     if (!g_container) {
-      g_container = new ReDockItContainer();
+      g_container = std::make_unique<ReDockItContainer>();
     }
     if (!g_container->GetHwnd()) {
       g_container->Create();
@@ -55,7 +56,7 @@ static bool hookCommandProc(int command, int flag)
 {
   if (command == g_cmdId) {
     if (!g_container) {
-      g_container = new ReDockItContainer();
+      g_container = std::make_unique<ReDockItContainer>();
     }
     if (!g_container->GetHwnd()) {
       g_container->Create();
@@ -84,8 +85,7 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
   if (!rec) {
     if (g_container) {
       g_container->Shutdown();
-      delete g_container;
-      g_container = nullptr;
+      g_container.reset();
     }
     return 0;
   }
