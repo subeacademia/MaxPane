@@ -1,17 +1,29 @@
-# Build
+# Build artifacts
 cpp/build/
 
-# SDK and WDL (external dependencies)
+# External dependencies (cloned separately)
 cpp/sdk/
 cpp/WDL/
+
+# Compiled binaries
+*.dylib
+*.dll
+*.so
+*.o
+*.obj
 
 # macOS
 .DS_Store
 
-# Binaries
-*.dylib
-
-# IDE
+# IDE / Editor
 .vscode/
 .idea/
 *.xcodeproj/
+*.swp
+*~
+
+# Debug logs
+redockit_debug.log
+
+# Claude Code project files
+.claude/
