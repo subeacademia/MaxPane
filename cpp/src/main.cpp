@@ -114,7 +114,7 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
   if (!g_cmdId) return 0;
 
   static gaccel_register_t accel = {{0, 0, 0}, "ReDockIt: Open Container"};
-  accel.accel.cmd = g_cmdId;
+  accel.accel.cmd = static_cast<unsigned short>(g_cmdId);
   rec->Register("gaccel", &accel);
   rec->Register("hookcommand", (void*)hookCommandProc);
   rec->Register("toggleaction", (void*)toggleActionCallback);
