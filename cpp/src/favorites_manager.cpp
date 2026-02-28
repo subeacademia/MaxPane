@@ -38,21 +38,21 @@ void FavoritesManager::Load()
     const char* name = g_GetExtState(FAV_SECTION, key);
     DBG("[ReDockIt] FavoritesManager::Load: fav_%d_name='%s'\n", i, name ? name : "(null)");
     if (!name || !name[0]) continue;
-    strncpy(fav.name, name, sizeof(fav.name) - 1);
+    safe_strncpy(fav.name, name, sizeof(fav.name));
 
     snprintf(key, sizeof(key), "fav_%d_search", i);
     const char* search = g_GetExtState(FAV_SECTION, key);
     if (search && search[0]) {
-      strncpy(fav.searchTitle, search, sizeof(fav.searchTitle) - 1);
+      safe_strncpy(fav.searchTitle, search, sizeof(fav.searchTitle));
     } else {
-      strncpy(fav.searchTitle, fav.name, sizeof(fav.searchTitle) - 1);
+      safe_strncpy(fav.searchTitle, fav.name, sizeof(fav.searchTitle));
     }
 
     snprintf(key, sizeof(key), "fav_%d_actioncmd", i);
     const char* actionCmd = g_GetExtState(FAV_SECTION, key);
     DBG("[ReDockIt] FavoritesManager::Load: fav_%d_actioncmd='%s'\n", i, actionCmd ? actionCmd : "(null)");
     if (actionCmd && actionCmd[0]) {
-      strncpy(fav.actionCommand, actionCmd, sizeof(fav.actionCommand) - 1);
+      safe_strncpy(fav.actionCommand, actionCmd, sizeof(fav.actionCommand));
       fav.toggleAction = ResolveActionCommand(actionCmd);
       DBG("[ReDockIt] FavoritesManager::Load: resolved actioncmd '%s' -> %d\n",
           actionCmd, fav.toggleAction);
@@ -122,10 +122,10 @@ bool FavoritesManager::Add(const char* name, const char* searchTitle, const char
 
   FavoriteEntry& fav = m_favorites[m_count];
   memset(&fav, 0, sizeof(FavoriteEntry));
-  strncpy(fav.name, name, sizeof(fav.name) - 1);
-  strncpy(fav.searchTitle, searchTitle ? searchTitle : name, sizeof(fav.searchTitle) - 1);
+  safe_strncpy(fav.name, name, sizeof(fav.name));
+  safe_strncpy(fav.searchTitle, searchTitle ? searchTitle : name, sizeof(fav.searchTitle));
   if (actionCommand && actionCommand[0]) {
-    strncpy(fav.actionCommand, actionCommand, sizeof(fav.actionCommand) - 1);
+    safe_strncpy(fav.actionCommand, actionCommand, sizeof(fav.actionCommand));
     fav.toggleAction = ResolveActionCommand(actionCommand);
   } else {
     fav.toggleAction = 0;

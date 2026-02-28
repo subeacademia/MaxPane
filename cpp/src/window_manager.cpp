@@ -49,8 +49,7 @@ static BOOL CALLBACK FindWindowEnumProc(HWND hwnd, LPARAM lParam)
 
   // Strip " (docked)" suffix for matching (ReaImGui scripts use this)
   char matchBuf[512];
-  strncpy(matchBuf, buf, sizeof(matchBuf) - 1);
-  matchBuf[sizeof(matchBuf) - 1] = '\0';
+  safe_strncpy(matchBuf, buf, sizeof(matchBuf));
   char* dockedSuffix = strstr(matchBuf, " (docked)");
   if (dockedSuffix) *dockedSuffix = '\0';
 
@@ -82,8 +81,7 @@ static BOOL CALLBACK FindChildWindowEnumProc(HWND hwnd, LPARAM lParam)
 
   // Strip " (docked)" suffix for matching (ReaImGui dock frames)
   char matchBuf[512];
-  strncpy(matchBuf, buf, sizeof(matchBuf) - 1);
-  matchBuf[sizeof(matchBuf) - 1] = '\0';
+  safe_strncpy(matchBuf, buf, sizeof(matchBuf));
   char* dockedSuffix = strstr(matchBuf, " (docked)");
   if (dockedSuffix) *dockedSuffix = '\0';
 
@@ -324,18 +322,15 @@ bool WindowManager::CaptureArbitraryWindow(int paneId, HWND targetHwnd, const ch
   TabEntry& tab = ps.tabs[ps.tabCount];
   memset(&tab, 0, sizeof(TabEntry));
 
-  strncpy(tab.arbitraryName, displayName, sizeof(tab.arbitraryName) - 1);
-  tab.arbitraryName[sizeof(tab.arbitraryName) - 1] = '\0';
-  strncpy(tab.arbitrarySearchTitle, displayName, sizeof(tab.arbitrarySearchTitle) - 1);
-  tab.arbitrarySearchTitle[sizeof(tab.arbitrarySearchTitle) - 1] = '\0';
+  safe_strncpy(tab.arbitraryName, displayName, sizeof(tab.arbitraryName));
+  safe_strncpy(tab.arbitrarySearchTitle, displayName, sizeof(tab.arbitrarySearchTitle));
 
   tab.name = tab.arbitraryName;
   tab.searchTitle = tab.arbitrarySearchTitle;
   tab.toggleAction = toggleAction;
   tab.isArbitrary = true;
   if (actionCmd && actionCmd[0]) {
-    strncpy(tab.arbitraryActionCmd, actionCmd, sizeof(tab.arbitraryActionCmd) - 1);
-    tab.arbitraryActionCmd[sizeof(tab.arbitraryActionCmd) - 1] = '\0';
+    safe_strncpy(tab.arbitraryActionCmd, actionCmd, sizeof(tab.arbitraryActionCmd));
   }
 
   if (DoCapture(tab, targetHwnd, containerHwnd)) {

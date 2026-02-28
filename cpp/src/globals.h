@@ -9,6 +9,8 @@
 #include "swell/swell.h"
 #endif
 
+#include <cstring>
+
 // Global REAPER API function pointers (defined in globals.cpp)
 extern void (*g_DockWindowAddEx)(HWND hwnd, const char* name, const char* identstr, bool allowShow);
 extern void (*g_DockWindowRemove)(HWND);
@@ -23,6 +25,15 @@ extern int (*g_GetToggleCommandState)(int);
 extern int (*g_NamedCommandLookup)(const char*);
 extern const char* (*g_ReverseNamedCommandLookup)(int);
 
+// Safe string copy: always null-terminates, handles null src
+inline void safe_strncpy(char* dst, const char* src, size_t dst_size)
+{
+  if (!dst || dst_size == 0) return;
+  if (!src) { dst[0] = '\0'; return; }
+  strncpy(dst, src, dst_size - 1);
+  dst[dst_size - 1] = '\0';
+}
+
 // Resolve action command string to numeric ID (handles both "_RSxxx" and "12345")
 inline int ResolveActionCommand(const char* cmd)
 {
@@ -36,6 +47,7 @@ inline int ResolveActionCommand(const char* cmd)
 // Get stable command string for an action ID (returns named ID for custom actions, numeric string for built-in)
 inline const char* GetActionCommandString(int actionId, char* buf, int bufSize)
 {
+  if (!buf || bufSize <= 0) return "";
   if (actionId <= 0) { buf[0] = '0'; buf[1] = '\0'; return buf; }
   if (g_ReverseNamedCommandLookup) {
     const char* named = g_ReverseNamedCommandLookup(actionId);

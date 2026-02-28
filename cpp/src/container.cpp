@@ -838,14 +838,14 @@ void ReDockItContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
       char actionCmd[128] = "";
       if (tab->isArbitrary) {
         if (tab->arbitraryActionCmd[0]) {
-          strncpy(actionCmd, tab->arbitraryActionCmd, sizeof(actionCmd) - 1);
+          safe_strncpy(actionCmd, tab->arbitraryActionCmd, sizeof(actionCmd));
         } else if (g_GetUserInputs) {
           char inputBuf[128] = "";
           if (g_GetUserInputs("Add to Favorites", 1,
                               "Action ID or _command (for auto-reopen):",
                               inputBuf, sizeof(inputBuf))) {
             if (inputBuf[0]) {
-              strncpy(actionCmd, inputBuf, sizeof(actionCmd) - 1);
+              safe_strncpy(actionCmd, inputBuf, sizeof(actionCmd));
             }
           }
         }
@@ -897,8 +897,7 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
       const OpenWindowEntry& owe = GetOpenWindow(idx);
       HWND targetHwnd = owe.hwnd;
       char title[256];
-      strncpy(title, owe.title, sizeof(title) - 1);
-      title[sizeof(title) - 1] = '\0';
+      safe_strncpy(title, owe.title, sizeof(title));
 
       HWND dockFrame = nullptr;
       char* docked = strstr(title, " (docked)");

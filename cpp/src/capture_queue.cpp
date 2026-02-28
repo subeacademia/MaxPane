@@ -23,11 +23,11 @@ void CaptureQueue::EnqueueKnown(int paneId, int knownIdx)
   pc.state = PendingCapture::WAITING;
   pc.paneId = paneId;
   pc.knownWindowIndex = knownIdx;
-  strncpy(pc.searchTitle, def.searchTitle, sizeof(pc.searchTitle) - 1);
+  safe_strncpy(pc.searchTitle, def.searchTitle, sizeof(pc.searchTitle));
   if (def.altSearchTitle) {
-    strncpy(pc.altSearchTitle, def.altSearchTitle, sizeof(pc.altSearchTitle) - 1);
+    safe_strncpy(pc.altSearchTitle, def.altSearchTitle, sizeof(pc.altSearchTitle));
   }
-  strncpy(pc.displayName, def.name, sizeof(pc.displayName) - 1);
+  safe_strncpy(pc.displayName, def.name, sizeof(pc.displayName));
   pc.toggleAction = def.toggleActionId;
   pc.isArbitrary = false;
   pc.tickCount = 0;
@@ -64,15 +64,15 @@ void CaptureQueue::EnqueueArbitrary(int paneId, const char* name, int toggleActi
   pc.state = PendingCapture::WAITING;
   pc.paneId = paneId;
   pc.knownWindowIndex = -1;
-  strncpy(pc.searchTitle, name, sizeof(pc.searchTitle) - 1);
-  strncpy(pc.displayName, name, sizeof(pc.displayName) - 1);
+  safe_strncpy(pc.searchTitle, name, sizeof(pc.searchTitle));
+  safe_strncpy(pc.displayName, name, sizeof(pc.displayName));
   pc.toggleAction = toggleAction;
   pc.isArbitrary = true;
   pc.tickCount = 0;
   pc.retryCount = 0;
   pc.maxRetries = (toggleAction > 0) ? MAX_RETRIES : MAX_RETRIES_ARBITRARY;
   if (actionCmd && actionCmd[0]) {
-    strncpy(pc.actionCommand, actionCmd, sizeof(pc.actionCommand) - 1);
+    safe_strncpy(pc.actionCommand, actionCmd, sizeof(pc.actionCommand));
   }
 
   // Fire the toggle action if we have one

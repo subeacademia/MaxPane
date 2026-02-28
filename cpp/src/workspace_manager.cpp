@@ -172,7 +172,7 @@ void WorkspaceManager::WritePaneTabs(const char* prefix, const PaneSnapshot* pan
             // Get stable action command string
             char cmdStr[128] = "0";
             if (tab.arbitraryActionCmd[0]) {
-              strncpy(cmdStr, tab.arbitraryActionCmd, sizeof(cmdStr) - 1);
+              safe_strncpy(cmdStr, tab.arbitraryActionCmd, sizeof(cmdStr));
             } else if (tab.toggleAction > 0) {
               GetActionCommandString(tab.toggleAction, cmdStr, sizeof(cmdStr));
             }
@@ -264,19 +264,19 @@ void WorkspaceManager::ReadPaneTabs(const char* prefix, PaneSnapshot* panes, int
               panes[p].tabs[t].toggleAction = ResolveActionCommand(panes[p].tabs[t].actionCommand);
             }
             // Name after second colon
-            strncpy(panes[p].tabs[t].name, secondColon + 1, sizeof(panes[p].tabs[t].name) - 1);
+            safe_strncpy(panes[p].tabs[t].name, secondColon + 1, sizeof(panes[p].tabs[t].name));
             DBG("[ReDockIt] ReadPaneTabs: parsed arb cmd='%s' action=%d name='%s'\n",
                 panes[p].tabs[t].actionCommand, panes[p].tabs[t].toggleAction, secondColon + 1);
           } else {
             // Legacy format — no action command
             panes[p].tabs[t].toggleAction = 0;
             panes[p].tabs[t].actionCommand[0] = '\0';
-            strncpy(panes[p].tabs[t].name, afterArb, sizeof(panes[p].tabs[t].name) - 1);
+            safe_strncpy(panes[p].tabs[t].name, afterArb, sizeof(panes[p].tabs[t].name));
             DBG("[ReDockIt] ReadPaneTabs: parsed arb LEGACY name='%s'\n", afterArb);
           }
         } else {
           panes[p].tabs[t].isArbitrary = false;
-          strncpy(panes[p].tabs[t].name, val, sizeof(panes[p].tabs[t].name) - 1);
+          safe_strncpy(panes[p].tabs[t].name, val, sizeof(panes[p].tabs[t].name));
           for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
             if (strcmp(KNOWN_WINDOWS[j].name, val) == 0) {
               panes[p].tabs[t].toggleAction = KNOWN_WINDOWS[j].toggleActionId;
@@ -373,7 +373,7 @@ void WorkspaceManager::Save(const char* name, const SplitTree& tree, const Windo
 
   WorkspaceEntry& ws = m_workspaces[slot];
   memset(&ws, 0, sizeof(WorkspaceEntry));
-  strncpy(ws.name, name, MAX_WORKSPACE_NAME - 1);
+  safe_strncpy(ws.name, name, MAX_WORKSPACE_NAME);
   ws.used = true;
   ws.treeVersion = 2;
 
@@ -391,14 +391,14 @@ void WorkspaceManager::Save(const char* name, const SplitTree& tree, const Windo
       ws.panes[p].tabs[t].isArbitrary = tab.isArbitrary;
       ws.panes[p].tabs[t].toggleAction = tab.toggleAction;
       if (tab.isArbitrary && tab.arbitraryActionCmd[0]) {
-        strncpy(ws.panes[p].tabs[t].actionCommand, tab.arbitraryActionCmd,
-                sizeof(ws.panes[p].tabs[t].actionCommand) - 1);
+        safe_strncpy(ws.panes[p].tabs[t].actionCommand, tab.arbitraryActionCmd,
+                     sizeof(ws.panes[p].tabs[t].actionCommand));
       } else if (tab.toggleAction > 0) {
         GetActionCommandString(tab.toggleAction, ws.panes[p].tabs[t].actionCommand,
                                sizeof(ws.panes[p].tabs[t].actionCommand));
       }
       if (tab.name) {
-        strncpy(ws.panes[p].tabs[t].name, tab.name, sizeof(ws.panes[p].tabs[t].name) - 1);
+        safe_strncpy(ws.panes[p].tabs[t].name, tab.name, sizeof(ws.panes[p].tabs[t].name));
       }
     }
   }
@@ -450,7 +450,7 @@ void WorkspaceManager::LoadList()
 
     WorkspaceEntry& ws = m_workspaces[m_count];
     memset(&ws, 0, sizeof(WorkspaceEntry));
-    strncpy(ws.name, name, MAX_WORKSPACE_NAME - 1);
+    safe_strncpy(ws.name, name, MAX_WORKSPACE_NAME);
     ws.used = true;
 
     // Check if workspace uses tree format

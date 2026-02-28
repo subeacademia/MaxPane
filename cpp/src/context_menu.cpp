@@ -44,8 +44,7 @@ static BOOL CALLBACK EnumOpenWindowsProc(HWND hwnd, LPARAM lParam)
   if (strlen(buf) < 3) return TRUE;
 
   g_openWindows[g_openWindowCount].hwnd = hwnd;
-  strncpy(g_openWindows[g_openWindowCount].title, buf, sizeof(g_openWindows[g_openWindowCount].title) - 1);
-  g_openWindows[g_openWindowCount].title[sizeof(g_openWindows[g_openWindowCount].title) - 1] = '\0';
+  safe_strncpy(g_openWindows[g_openWindowCount].title, buf, sizeof(g_openWindows[g_openWindowCount].title));
   g_openWindowCount++;
 
   return TRUE;
