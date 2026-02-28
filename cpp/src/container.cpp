@@ -247,7 +247,8 @@ void ReDockItContainer::LoadState()
         if (h) {
           m_winMgr.CaptureArbitraryWindow(i, h, winName, m_hwnd, arbAction, arbCmd);
         } else {
-          m_captureQueue->EnqueueArbitrary(i, winName, arbAction, arbCmd);
+          // Defer actions during LoadState to avoid deadlocking REAPER during project load
+          m_captureQueue->EnqueueArbitrary(i, winName, arbAction, arbCmd, true);
           needsCaptureTimer = true;
         }
       } else {
@@ -258,7 +259,8 @@ void ReDockItContainer::LoadState()
               h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].altSearchTitle, m_hwnd);
             }
             if (!h && g_Main_OnCommand) {
-              m_captureQueue->EnqueueKnown(i, j);
+              // Defer actions during LoadState to avoid deadlocking REAPER during project load
+              m_captureQueue->EnqueueKnown(i, j, true);
               needsCaptureTimer = true;
             } else if (h) {
               m_winMgr.CaptureByIndex(i, j, m_hwnd);

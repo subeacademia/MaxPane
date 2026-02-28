@@ -16,6 +16,7 @@ struct PendingCapture {
   int maxRetries = 30;
   int colorIndex = 0;
   char actionCommand[128] = {};  // stable command string for re-resolve after restart
+  bool actionDeferred = false;   // true = Main_OnCommand not yet called (deferred from LoadState)
 };
 
 class CaptureQueue {
@@ -29,8 +30,8 @@ public:
 
   CaptureQueue();
 
-  void EnqueueKnown(int paneId, int knownIdx);
-  void EnqueueArbitrary(int paneId, const char* name, int toggleAction = 0, const char* actionCmd = nullptr);
+  void EnqueueKnown(int paneId, int knownIdx, bool deferAction = false);
+  void EnqueueArbitrary(int paneId, const char* name, int toggleAction = 0, const char* actionCmd = nullptr, bool deferAction = false);
   bool Tick(HWND containerHwnd, WindowManager& winMgr);  // returns true if any captured
   bool HasPending() const;
   void CancelAll();

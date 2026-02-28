@@ -11,7 +11,7 @@ CaptureQueue::CaptureQueue()
   memset(m_queue, 0, sizeof(m_queue));
 }
 
-void CaptureQueue::EnqueueKnown(int paneId, int knownIdx)
+void CaptureQueue::EnqueueKnown(int paneId, int knownIdx, bool deferAction)
 {
   if (m_count >= MAX_PENDING) return;
   if (knownIdx < 0 || knownIdx >= NUM_KNOWN_WINDOWS) return;
@@ -33,10 +33,12 @@ void CaptureQueue::EnqueueKnown(int paneId, int knownIdx)
   pc.tickCount = 0;
   pc.retryCount = 0;
   pc.maxRetries = MAX_RETRIES;
+  pc.actionDeferred = deferAction;
 
   // Fire the toggle action to open the window — but only if it's currently closed.
-  // If already open (state=1), don't toggle or we'd close it.
-  if (g_Main_OnCommand) {
+  // If deferAction is set (called from LoadState during startup), skip Main_OnCommand
+  // to avoid deadlocking REAPER during project load. The action will fire on first Tick.
+  if (!deferAction && g_Main_OnCommand) {
     bool alreadyOpen = false;
     if (g_GetToggleCommandState) {
       int state = g_GetToggleCommandState(def.toggleActionId);
@@ -50,11 +52,11 @@ void CaptureQueue::EnqueueKnown(int paneId, int knownIdx)
   }
 
   m_count++;
-  DBG("[ReDockIt] CaptureQueue: enqueued known '%s' for pane %d (count=%d)\n",
-      def.name, paneId, m_count);
+  DBG("[ReDockIt] CaptureQueue: enqueued known '%s' for pane %d (count=%d, deferred=%d)\n",
+      def.name, paneId, m_count, deferAction);
 }
 
-void CaptureQueue::EnqueueArbitrary(int paneId, const char* name, int toggleAction, const char* actionCmd)
+void CaptureQueue::EnqueueArbitrary(int paneId, const char* name, int toggleAction, const char* actionCmd, bool deferAction)
 {
   if (m_count >= MAX_PENDING) return;
   if (!name || !name[0]) return;
@@ -71,18 +73,21 @@ void CaptureQueue::EnqueueArbitrary(int paneId, const char* name, int toggleActi
   pc.tickCount = 0;
   pc.retryCount = 0;
   pc.maxRetries = (toggleAction > 0) ? MAX_RETRIES : MAX_RETRIES_ARBITRARY;
+  pc.actionDeferred = deferAction;
   if (actionCmd && actionCmd[0]) {
     safe_strncpy(pc.actionCommand, actionCmd, sizeof(pc.actionCommand));
   }
 
-  // Fire the toggle action if we have one
-  if (toggleAction > 0 && g_Main_OnCommand) {
+  // Fire the toggle action if we have one.
+  // If deferAction is set (called from LoadState during startup), skip Main_OnCommand
+  // to avoid deadlocking REAPER during project load. The action will fire on first Tick.
+  if (!deferAction && toggleAction > 0 && g_Main_OnCommand) {
     g_Main_OnCommand(toggleAction, 0);
   }
 
   m_count++;
-  DBG("[ReDockIt] CaptureQueue: enqueued arbitrary '%s' action=%d cmd='%s' maxRetries=%d for pane %d (count=%d)\n",
-      name, toggleAction, pc.actionCommand, pc.maxRetries, paneId, m_count);
+  DBG("[ReDockIt] CaptureQueue: enqueued arbitrary '%s' action=%d cmd='%s' maxRetries=%d for pane %d (count=%d, deferred=%d)\n",
+      name, toggleAction, pc.actionCommand, pc.maxRetries, paneId, m_count, deferAction);
 }
 
 bool CaptureQueue::Tick(HWND containerHwnd, WindowManager& winMgr)
@@ -110,6 +115,23 @@ bool CaptureQueue::Tick(HWND containerHwnd, WindowManager& winMgr)
     if (pc.tickCount % RETRY_INTERVAL != 0) continue;
 
     pc.retryCount++;
+
+    // Fire deferred action on first retry (REAPER is now past startup)
+    if (pc.actionDeferred) {
+      pc.actionDeferred = false;
+      if (g_Main_OnCommand && pc.toggleAction > 0) {
+        bool alreadyOpen = false;
+        if (!pc.isArbitrary && g_GetToggleCommandState) {
+          int state = g_GetToggleCommandState(pc.toggleAction);
+          alreadyOpen = (state == 1);
+        }
+        if (!alreadyOpen) {
+          DBG("[ReDockIt] CaptureQueue: firing deferred action for '%s' (action %d)\n",
+              pc.displayName, pc.toggleAction);
+          g_Main_OnCommand(pc.toggleAction, 0);
+        }
+      }
+    }
 
     // Try to find the window
     HWND found = WindowManager::FindReaperWindow(pc.searchTitle, containerHwnd);
