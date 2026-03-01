@@ -42,6 +42,12 @@ public:
                         PaneSnapshot outPanes[MAX_PANES],
                         bool& outHasTreeFormat) const;
 
+  // Per-project state persistence (ProjExtState, stored in RPP)
+  void SaveProjectState(ReaProject* proj, const SplitTree& tree, const WindowManager& winMgr);
+  bool LoadProjectState(ReaProject* proj, NodeSnapshot* outSnap, int& outNodeCount,
+                        PaneSnapshot outPanes[MAX_PANES], bool& outHasTreeFormat) const;
+  bool HasProjectState(ReaProject* proj) const;
+
   // Named workspace CRUD
   void Save(const char* name, const SplitTree& tree, const WindowManager& winMgr);
   const WorkspaceEntry* Find(const char* name) const;

@@ -359,6 +359,74 @@ bool WorkspaceManager::LoadCurrentState(NodeSnapshot* outSnap, int& outNodeCount
 }
 
 // =========================================================================
+// Per-project state persistence
+// =========================================================================
+
+void WorkspaceManager::SaveProjectState(ReaProject* proj, const SplitTree& tree,
+                                        const WindowManager& winMgr)
+{
+  if (!g_SetProjExtState || !proj) return;
+
+  ProjectStateAccessor projState(proj);
+
+  projState.Set(EXT_SECTION, "tree_version", "2", true);
+
+  NodeSnapshot snap[MAX_TREE_NODES];
+  int nodeCount = 0;
+  tree.SaveSnapshot(snap, nodeCount);
+
+  bool corrupt = false;
+  for (int i = 0; i < nodeCount; i++) {
+    if (snap[i].type == NODE_BRANCH && snap[i].childA == snap[i].childB) {
+      DBG("[ReDockIt] SaveProjectState: WARNING — node %d has childA==childB==%d\n",
+          i, snap[i].childA);
+      corrupt = true;
+    }
+  }
+  if (corrupt) {
+    DBG("[ReDockIt] SaveProjectState: corrupt tree detected, skipping save\n");
+    return;
+  }
+  WriteTreeNodes("", snap, nodeCount, projState);
+  WritePaneTabs("", nullptr, MAX_PANES, &winMgr, projState);
+}
+
+bool WorkspaceManager::LoadProjectState(ReaProject* proj, NodeSnapshot* outSnap,
+                                        int& outNodeCount, PaneSnapshot outPanes[MAX_PANES],
+                                        bool& outHasTreeFormat) const
+{
+  if (!g_GetProjExtState || !proj) return false;
+
+  ProjectStateAccessor projState(proj);
+
+  const char* treeVer = projState.Get(EXT_SECTION, "tree_version");
+  outHasTreeFormat = (treeVer && strcmp(treeVer, "2") == 0);
+
+  if (outHasTreeFormat) {
+    memset(outSnap, 0, sizeof(NodeSnapshot) * MAX_TREE_NODES);
+    outNodeCount = ReadTreeNodes("", outSnap, projState);
+    if (outNodeCount < 1) return false;
+  } else {
+    outNodeCount = 0;
+    return false;  // per-project state is always tree format
+  }
+
+  memset(outPanes, 0, sizeof(PaneSnapshot) * MAX_PANES);
+  ReadPaneTabs("", outPanes, MAX_PANES, projState);
+
+  return true;
+}
+
+bool WorkspaceManager::HasProjectState(ReaProject* proj) const
+{
+  if (!g_GetProjExtState || !proj) return false;
+
+  ProjectStateAccessor projState(proj);
+  const char* val = projState.Get(EXT_SECTION, "tree_version");
+  return (val != nullptr);
+}
+
+// =========================================================================
 // Named workspace CRUD
 // =========================================================================
 
