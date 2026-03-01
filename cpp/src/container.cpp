@@ -26,6 +26,7 @@ ReDockItContainer::ReDockItContainer()
   , m_favMgr(std::make_unique<FavoritesManager>())
   , m_wsMgr(std::make_unique<WorkspaceManager>())
   , m_shutdownGraceTicks(0)
+  , m_currentProject(nullptr)
 {
   m_captureMode.active = false;
   m_captureMode.targetPaneId = -1;
@@ -48,6 +49,7 @@ bool ReDockItContainer::Create()
   if (!m_hwnd) return false;
 
   SetWindowLong(m_hwnd, GWL_USERDATA, (LONG_PTR)this);
+  m_currentProject = g_EnumProjects ? g_EnumProjects(-1, nullptr, 0) : nullptr;
   m_favMgr->Load();
   LoadState();
 
@@ -190,7 +192,12 @@ void ReDockItContainer::MergePane(int paneId)
 
 void ReDockItContainer::SaveState()
 {
-  m_wsMgr->SaveCurrentState(m_tree, m_winMgr);
+  m_wsMgr->SaveCurrentState(m_tree, m_winMgr);  // global (default + backward compat)
+  if (g_EnumProjects) {
+    ReaProject* proj = g_EnumProjects(-1, nullptr, 0);
+    if (proj)
+      m_wsMgr->SaveProjectState(proj, m_tree, m_winMgr);  // per-project (stored in RPP)
+  }
 }
 
 void ReDockItContainer::LoadState()
@@ -202,15 +209,25 @@ void ReDockItContainer::LoadState()
   PaneSnapshot panes[MAX_PANES];
   bool hasTreeFormat = false;
 
-  m_wsMgr->LoadCurrentState(snap, nodeCount, panes, hasTreeFormat);
+  // Try per-project state first, fall back to global
+  bool loaded = false;
+  if (g_EnumProjects) {
+    ReaProject* proj = g_EnumProjects(-1, nullptr, 0);
+    if (proj && m_wsMgr->HasProjectState(proj)) {
+      loaded = m_wsMgr->LoadProjectState(proj, snap, nodeCount, panes, hasTreeFormat);
+      DBG("[ReDockIt] LoadState: loaded per-project state (nodes=%d)\n", nodeCount);
+    }
+  }
+  if (!loaded) {
+    loaded = m_wsMgr->LoadCurrentState(snap, nodeCount, panes, hasTreeFormat);
+    DBG("[ReDockIt] LoadState: loaded global state (nodes=%d)\n", nodeCount);
+  }
 
   if (hasTreeFormat) {
     if (nodeCount < 1) {
       m_tree.Reset();
     } else {
       if (!m_tree.LoadSnapshot(snap, nodeCount)) {
-        // Tree was corrupt — Reset happened.  Immediately overwrite ExtState
-        // so the corrupt data doesn't persist across sessions.
         DBG("[ReDockIt] LoadState: corrupt tree detected, saving clean reset state\n");
         SaveState();
       }
@@ -714,6 +731,61 @@ void ReDockItContainer::OnTimer()
   }
 
   m_winMgr.CheckAlive(m_hwnd);
+
+  // Detect project tab switch
+  if (g_EnumProjects) {
+    ReaProject* curProj = g_EnumProjects(-1, nullptr, 0);
+    if (curProj && curProj != m_currentProject) {
+      OnProjectSwitch(m_currentProject, curProj);
+      m_currentProject = curProj;
+    }
+  }
+}
+
+void ReDockItContainer::OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj)
+{
+  DBG("[ReDockIt] OnProjectSwitch: %p -> %p\n", oldProj, newProj);
+
+  // Save current layout to old project (if valid) and global
+  if (oldProj) {
+    m_wsMgr->SaveProjectState(oldProj, m_tree, m_winMgr);
+  }
+  m_wsMgr->SaveCurrentState(m_tree, m_winMgr);
+
+  // Cancel pending captures and release all windows
+  m_captureQueue->CancelAll();
+  m_winMgr.ReleaseAll();
+
+  // Load new project's layout (or global fallback)
+  NodeSnapshot snap[MAX_TREE_NODES];
+  int nodeCount = 0;
+  PaneSnapshot panes[MAX_PANES];
+  bool hasTreeFormat = false;
+
+  bool loaded = false;
+  if (newProj && m_wsMgr->HasProjectState(newProj)) {
+    loaded = m_wsMgr->LoadProjectState(newProj, snap, nodeCount, panes, hasTreeFormat);
+    DBG("[ReDockIt] OnProjectSwitch: loaded per-project state (nodes=%d)\n", nodeCount);
+  }
+  if (!loaded) {
+    loaded = m_wsMgr->LoadCurrentState(snap, nodeCount, panes, hasTreeFormat);
+    DBG("[ReDockIt] OnProjectSwitch: loaded global fallback (nodes=%d)\n", nodeCount);
+  }
+
+  if (hasTreeFormat && nodeCount > 0) {
+    if (!m_tree.LoadSnapshot(snap, nodeCount)) {
+      m_tree.Reset();
+    }
+  } else {
+    m_tree.Reset();
+  }
+
+  RECT rc;
+  GetClientRect(m_hwnd, &rc);
+  m_tree.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
+  ApplyPaneState(panes, MAX_PANES, false);
+  m_winMgr.RepositionAll(m_tree);
+  InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
 // =========================================================================

@@ -20,6 +20,7 @@ struct DragState {
 };
 
 struct PaneSnapshot;
+class ReaProject;
 class CaptureQueue;
 class FavoritesManager;
 class WorkspaceManager;
@@ -64,6 +65,7 @@ private:
   std::unique_ptr<FavoritesManager> m_favMgr;
   std::unique_ptr<WorkspaceManager> m_wsMgr;
   int m_shutdownGraceTicks;  // countdown after capture completes before allowing shutdown
+  ReaProject* m_currentProject;
 
   void ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions);
   void RefreshLayout();
@@ -75,6 +77,7 @@ private:
   void OnMouseMove(int x, int y);
   void OnLButtonUp(int x, int y);
   void OnTimer();
+  void OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj);
   void OnContextMenu(int x, int y);
   void DrawTabBar(HDC hdc, int paneId, const RECT& paneRect);
 
