@@ -25,6 +25,9 @@
 #define REAPERAPI_WANT_GetToggleCommandState
 #define REAPERAPI_WANT_NamedCommandLookup
 #define REAPERAPI_WANT_ReverseNamedCommandLookup
+#define REAPERAPI_WANT_EnumProjects
+#define REAPERAPI_WANT_GetProjExtState
+#define REAPERAPI_WANT_SetProjExtState
 
 #include "reaper_plugin.h"
 #include "reaper_plugin_functions.h"
@@ -125,6 +128,9 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
   g_GetToggleCommandState = GetToggleCommandState;
   g_NamedCommandLookup = NamedCommandLookup;
   g_ReverseNamedCommandLookup = ReverseNamedCommandLookup;
+  g_EnumProjects = EnumProjects;
+  g_GetProjExtState = GetProjExtState;
+  g_SetProjExtState = SetProjExtState;
 
   g_cmdId = rec->Register("command_id", (void*)"ReDockIt_OpenContainer");
   if (!g_cmdId) return 0;

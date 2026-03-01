@@ -25,6 +25,14 @@ extern int (*g_GetToggleCommandState)(int);
 extern int (*g_NamedCommandLookup)(const char*);
 extern const char* (*g_ReverseNamedCommandLookup)(int);
 
+// Per-project state API
+class ReaProject;  // forward declaration (defined in reaper_plugin.h)
+extern ReaProject* (*g_EnumProjects)(int idx, char* projfnOut, int projfnOut_sz);
+extern int (*g_GetProjExtState)(ReaProject* proj, const char* extname, const char* key,
+                                 char* valOut, int valOut_sz);
+extern int (*g_SetProjExtState)(ReaProject* proj, const char* extname, const char* key,
+                                 const char* value);
+
 // Safe string copy: always null-terminates, handles null src
 inline void safe_strncpy(char* dst, const char* src, size_t dst_size)
 {
