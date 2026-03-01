@@ -374,11 +374,22 @@ void WindowManager::DoRelease(TabEntry& tab, bool toggleOff)
   }
 
   // Toggle off so REAPER knows the window is closed.
-  // Runs even if the window is already destroyed — Main_OnCommand
-  // operates on REAPER's internal state, not the HWND.
+  // Guard: only toggle if REAPER thinks window is open (state=1).
+  // Main_OnCommand is a TOGGLE — calling when state=0 would OPEN the window.
   if (toggleOff && tab.toggleAction > 0 && g_Main_OnCommand) {
-    DBG("[ReDockIt] DoRelease: toggling off action %d\n", tab.toggleAction);
-    g_Main_OnCommand(tab.toggleAction, 0);
+    bool shouldToggle = true;
+    if (g_GetToggleCommandState) {
+      int state = g_GetToggleCommandState(tab.toggleAction);
+      if (state != 1) {
+        DBG("[ReDockIt] DoRelease: skipping toggle for action %d (state=%d, not open)\n",
+            tab.toggleAction, state);
+        shouldToggle = false;
+      }
+    }
+    if (shouldToggle) {
+      DBG("[ReDockIt] DoRelease: toggling off action %d\n", tab.toggleAction);
+      g_Main_OnCommand(tab.toggleAction, 0);
+    }
   }
 
   tab.hwnd = nullptr;
