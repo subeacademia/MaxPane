@@ -362,34 +362,39 @@ void WindowManager::DoRelease(TabEntry& tab, bool toggleOff)
       (tab.hwnd && IsWindow(tab.hwnd)) ? 1 : 0);
 
   if (tab.hwnd && IsWindow(tab.hwnd)) {
-    ShowWindow(tab.hwnd, SW_HIDE);
-
+    // Reparent back to original parent (or main window as fallback)
     HWND restoreParent = tab.originalParent;
     if (!restoreParent || !IsWindow(restoreParent)) {
       restoreParent = g_reaperMainHwnd;
     }
     SetParent(tab.hwnd, restoreParent);
-    SetWindowLong(tab.hwnd, GWL_STYLE, tab.originalStyle);
-    SetWindowLong(tab.hwnd, GWL_EXSTYLE, tab.originalExStyle);
+    // Don't restore originalStyle/originalExStyle — those were saved from docker context
+    // (WS_CHILD without caption/frame). REAPER manages window style after toggle off.
+
+    // Briefly show the window so REAPER recognizes it as "open" before we toggle off.
+    // Without this, REAPER thinks the window is closed (state=0 due to reparenting)
+    // and Main_OnCommand would toggle it ON instead of OFF.
+    ShowWindow(tab.hwnd, SW_SHOWNA);
   }
 
-  // Toggle off so REAPER knows the window is closed.
-  // Guard: only toggle if REAPER thinks window is open (state=1).
-  // Main_OnCommand is a TOGGLE — calling when state=0 would OPEN the window.
+  // Toggle off so REAPER knows the window is closed and saves wnd_vis=0.
   if (toggleOff && tab.toggleAction > 0 && g_Main_OnCommand) {
-    bool shouldToggle = true;
-    if (g_GetToggleCommandState) {
-      int state = g_GetToggleCommandState(tab.toggleAction);
-      if (state != 1) {
-        DBG("[ReDockIt] DoRelease: skipping toggle for action %d (state=%d, not open)\n",
-            tab.toggleAction, state);
-        shouldToggle = false;
+    int state = g_GetToggleCommandState ? g_GetToggleCommandState(tab.toggleAction) : -1;
+    DBG("[ReDockIt] DoRelease: action %d state=%d after reparent+show\n", tab.toggleAction, state);
+    if (state == 0) {
+      // Still state=0 even after showing — don't toggle (would reopen).
+      // Just hide the window directly.
+      DBG("[ReDockIt] DoRelease: state still 0, hiding hwnd directly\n");
+      if (tab.hwnd && IsWindow(tab.hwnd)) {
+        ShowWindow(tab.hwnd, SW_HIDE);
       }
-    }
-    if (shouldToggle) {
-      DBG("[ReDockIt] DoRelease: toggling off action %d\n", tab.toggleAction);
+    } else {
+      DBG("[ReDockIt] DoRelease: toggling off action %d (state=%d)\n", tab.toggleAction, state);
       g_Main_OnCommand(tab.toggleAction, 0);
     }
+  } else if (tab.hwnd && IsWindow(tab.hwnd)) {
+    // No toggle — just hide
+    ShowWindow(tab.hwnd, SW_HIDE);
   }
 
   tab.hwnd = nullptr;

@@ -900,8 +900,19 @@ void ReDockItContainer::OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj
       }
     }
     if (!stillCaptured && g_Main_OnCommand) {
-      DBG("[ReDockIt] OnProjectSwitch: toggling off orphaned action %d\n", oldActions[i]);
-      g_Main_OnCommand(oldActions[i], 0);
+      // Guard: only toggle if REAPER thinks window is open
+      bool shouldToggle = true;
+      if (g_GetToggleCommandState) {
+        int state = g_GetToggleCommandState(oldActions[i]);
+        if (state == 0) {
+          DBG("[ReDockIt] OnProjectSwitch: skipping toggle for action %d (state=0)\n", oldActions[i]);
+          shouldToggle = false;
+        }
+      }
+      if (shouldToggle) {
+        DBG("[ReDockIt] OnProjectSwitch: toggling off orphaned action %d\n", oldActions[i]);
+        g_Main_OnCommand(oldActions[i], 0);
+      }
     }
   }
 }

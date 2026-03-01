@@ -65,6 +65,9 @@ bool OnProcessExtensionLine(const char* line, ProjectStateContext* ctx,
     g_pendingProjectState.valid = (g_pendingProjectState.lineCount > 0);
     DBG("[ReDockIt] ProcessExtensionLine: read %d lines, valid=%d\n",
         g_pendingProjectState.lineCount, g_pendingProjectState.valid);
+    for (int i = 0; i < g_pendingProjectState.lineCount; i++) {
+      DBG("[ReDockIt]   RPP read line[%d]: '%s'\n", i, g_pendingProjectState.lines[i]);
+    }
     return true;  // we consumed these lines
   }
 
@@ -118,7 +121,9 @@ void OnSaveExtensionConfig(ProjectStateContext* ctx, bool isUndo,
 
   // Now write the collected key-value pairs as RPP chunk lines
   ctx->AddLine("<REDOCKIT_STATE");
+  DBG("[ReDockIt] SaveExtensionConfig: writing %d key-value lines\n", writeAcc.GetCount());
   for (int i = 0; i < writeAcc.GetCount(); i++) {
+    DBG("[ReDockIt]   RPP line: '%s %s'\n", writeAcc.GetKey(i), writeAcc.GetValue(i));
     ctx->AddLine("%s %s", writeAcc.GetKey(i), writeAcc.GetValue(i));
   }
   ctx->AddLine(">");

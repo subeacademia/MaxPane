@@ -36,24 +36,108 @@
 #include "globals.h"
 #include "container.h"
 #include "project_state.h"
+#include "debug.h"
 #include <memory>
 
 static std::unique_ptr<ReDockItContainer> g_container;
 static int g_cmdId = 0;
 static bool g_startupComplete = false;
 
+// atexit callback — REAPER calls this before main window destroy.
+// Save list of captured toggle actions so startup can close any that REAPER
+// incorrectly reopens (REAPER caches wnd_vis before atexit, so toggle here is futile).
+static void onAtExit()
+{
+  DBG("[ReDockIt] onAtExit: called, container=%p hwnd=%p\n",
+      (void*)g_container.get(), g_container ? (void*)g_container->GetHwnd() : nullptr);
+  if (g_container && g_container->GetHwnd() && g_SetExtState) {
+    // Collect all captured toggle actions
+    char buf[1024] = {};
+    int pos = 0;
+    const WindowManager& wm = g_container->GetWinMgr();
+    for (int p = 0; p < MAX_PANES; p++) {
+      const PaneState* ps = wm.GetPaneState(p);
+      if (!ps) continue;
+      for (int t = 0; t < ps->tabCount; t++) {
+        if (ps->tabs[t].captured && ps->tabs[t].toggleAction > 0) {
+          if (pos > 0 && pos < (int)sizeof(buf) - 1) buf[pos++] = ',';
+          pos += snprintf(buf + pos, sizeof(buf) - pos, "%d", ps->tabs[t].toggleAction);
+        }
+      }
+    }
+    g_SetExtState("ReDockIt_cpp", "captured_actions", buf, true);
+    DBG("[ReDockIt] onAtExit: saved captured_actions='%s'\n", buf);
+
+    g_container->SaveState();
+    // Release without toggle — REAPER will cache wnd_vis before we can change it
+    g_container->GetWinMgr().ReleaseAll(false);  // toggleOff=false
+    DBG("[ReDockIt] onAtExit: ReleaseAll(false) done\n");
+  }
+}
+
 // Used by project_state.cpp to access current container for save
 ReDockItContainer* GetContainer() { return g_container.get(); }
 
+// Close windows that REAPER incorrectly reopened from cached wnd_vis.
+// Called once at startup tick 1, before container auto-open.
+static void closeOrphanedWindows()
+{
+  if (!g_GetExtState || !g_Main_OnCommand || !g_GetToggleCommandState) return;
+
+  const char* actions = g_GetExtState("ReDockIt_cpp", "captured_actions");
+  if (!actions || !actions[0]) return;
+
+  DBG("[ReDockIt] closeOrphanedWindows: captured_actions='%s'\n", actions);
+
+  // Parse comma-separated action IDs
+  char buf[1024];
+  safe_strncpy(buf, actions, sizeof(buf));
+  char* p = buf;
+  while (*p) {
+    int actionId = atoi(p);
+    if (actionId > 0) {
+      int state = g_GetToggleCommandState(actionId);
+      DBG("[ReDockIt] closeOrphanedWindows: action %d state=%d\n", actionId, state);
+      if (state == 1) {
+        // REAPER reopened this window — close it
+        DBG("[ReDockIt] closeOrphanedWindows: closing action %d\n", actionId);
+        g_Main_OnCommand(actionId, 0);
+      }
+    }
+    // Skip to next comma or end
+    while (*p && *p != ',') p++;
+    if (*p == ',') p++;
+  }
+
+  // Clear the list so we don't re-close on next startup if user opens them manually
+  if (g_SetExtState) {
+    g_SetExtState("ReDockIt_cpp", "captured_actions", "", true);
+  }
+}
+
 // Deferred startup timer — fires on REAPER main loop, auto-opens container if enabled
 static int g_startupCounter = 0;
+static bool g_orphansCleanedUp = false;
 static void startupTimerFunc()
 {
+  // Close orphaned windows on first tick — as early as possible
+  if (!g_orphansCleanedUp) {
+    g_orphansCleanedUp = true;
+    closeOrphanedWindows();
+  }
+
   if (++g_startupCounter < STARTUP_DELAY_TICKS) return;
   g_plugin_register("-timer", (void*)(void(*)())startupTimerFunc);
   g_startupComplete = true;
 
-  if (IsAutoOpenEnabled()) {
+  // Only auto-open if enabled AND was visible when REAPER last closed.
+  // If user explicitly closed ReDockIt ([x]), was_visible="0" → don't reopen.
+  bool wasVisible = true;
+  if (g_GetExtState) {
+    const char* vis = g_GetExtState("ReDockIt_cpp", "was_visible");
+    if (vis && vis[0] == '0') wasVisible = false;
+  }
+  if (IsAutoOpenEnabled() && wasVisible) {
     if (!g_container) {
       g_container = std::make_unique<ReDockItContainer>();
     }
@@ -65,12 +149,11 @@ static void startupTimerFunc()
 
 static bool hookCommandProc(int command, int flag)
 {
-  // Intercept Quit — toggle off captured windows BEFORE REAPER saves reaper.ini.
-  // Without this, REAPER remembers windows as open (wnd_vis=1) and they float on restart.
+  // Intercept Quit (File→Quit on Windows/Linux, also macOS File→Quit menu).
+  // onAtExit handles the actual cleanup; this is a backup that fires earlier.
   if (command == 40004 && g_container && g_container->GetHwnd()) {
-    g_container->SaveState();
-    g_container->GetWinMgr().ReleaseAll(true);  // toggle off → REAPER sees wnd_vis=0
-    // Don't call Shutdown() here — REAPER will call ReaperPluginEntry(NULL) next
+    DBG("[ReDockIt] hookCommand 40004: intercepted Quit\n");
+    // onAtExit will handle saving captured_actions and release
     return false;  // let REAPER continue with quit
   }
 
@@ -165,6 +248,9 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
     nullptr  // userData
   };
   rec->Register("projectconfig", &s_projConfig);
+
+  // Register atexit — reliable shutdown on macOS (Cmd+Q bypasses hookcommand 40004)
+  rec->Register("atexit", (void*)onAtExit);
 
   // Deferred auto-open on startup
   g_plugin_register("timer", (void*)(void(*)())startupTimerFunc);
