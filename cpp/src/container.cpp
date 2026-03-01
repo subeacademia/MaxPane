@@ -224,10 +224,14 @@ void ReDockItContainer::LoadState()
     m_tree.BuildPreset((LayoutPreset)p);
   }
 
-  // Apply pane tabs from loaded data
+  ApplyPaneState(panes, MAX_PANES, true);
+}
+
+void ReDockItContainer::ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions)
+{
   bool needsCaptureTimer = false;
 
-  for (int i = 0; i < MAX_PANES; i++) {
+  for (int i = 0; i < maxPanes && i < MAX_PANES; i++) {
     if (!m_tree.IsPaneIdUsed(i)) continue;
     if (panes[i].tabCount == 0) continue;
 
@@ -246,7 +250,7 @@ void ReDockItContainer::LoadState()
             if (fav.actionCommand[0] && strcmp(fav.actionCommand, "0") != 0) {
               arbAction = fav.toggleAction;
               arbCmd = fav.actionCommand;
-              DBG("[ReDockIt] LoadState: enriched '%s' from favorites: action=%d cmd='%s'\n",
+              DBG("[ReDockIt] ApplyPaneState: enriched '%s' from favorites: action=%d cmd='%s'\n",
                   winName, arbAction, arbCmd);
             }
           }
@@ -255,8 +259,7 @@ void ReDockItContainer::LoadState()
         if (h) {
           m_winMgr.CaptureArbitraryWindow(i, h, winName, m_hwnd, arbAction, arbCmd);
         } else {
-          // Defer actions during LoadState to avoid deadlocking REAPER during project load
-          m_captureQueue->EnqueueArbitrary(i, winName, arbAction, arbCmd, true);
+          m_captureQueue->EnqueueArbitrary(i, winName, arbAction, arbCmd, deferActions);
           needsCaptureTimer = true;
         }
       } else {
@@ -267,8 +270,7 @@ void ReDockItContainer::LoadState()
               h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].altSearchTitle, m_hwnd);
             }
             if (!h && g_Main_OnCommand) {
-              // Defer actions during LoadState to avoid deadlocking REAPER during project load
-              m_captureQueue->EnqueueKnown(i, j, true);
+              m_captureQueue->EnqueueKnown(i, j, deferActions);
               needsCaptureTimer = true;
             } else if (h) {
               m_winMgr.CaptureByIndex(i, j, m_hwnd);
@@ -279,17 +281,12 @@ void ReDockItContainer::LoadState()
       }
     }
 
-    // Restore tab colors from ExtState directly (not in PaneSnapshot)
+    // Restore tab colors from snapshot
     int loadedTabs = m_winMgr.GetTabCount(i);
-    for (int t = 0; t < loadedTabs; t++) {
-      char key[64];
-      snprintf(key, sizeof(key), "pane_%d_tab_%d_color", i, t);
-      const char* colorStr = g_GetExtState(EXT_SECTION, key);
-      if (colorStr && colorStr[0]) {
-        int ci = atoi(colorStr);
-        if (ci >= 0 && ci < TAB_COLOR_COUNT) {
-          m_winMgr.SetTabColor(i, t, ci);
-        }
+    for (int t = 0; t < loadedTabs && t < panes[i].tabCount; t++) {
+      int ci = panes[i].tabs[t].colorIndex;
+      if (ci > 0 && ci < TAB_COLOR_COUNT) {
+        m_winMgr.SetTabColor(i, t, ci);
       }
     }
 
@@ -337,67 +334,7 @@ void ReDockItContainer::LoadWorkspace(const char* name)
     m_tree.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
   }
 
-  bool needsCaptureTimer = false;
-
-  for (int p = 0; p < MAX_PANES; p++) {
-    if (ws->panes[p].tabCount == 0) continue;
-    if (!m_tree.IsPaneIdUsed(p)) continue;
-
-    for (int t = 0; t < ws->panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
-      const char* wname = ws->panes[p].tabs[t].name;
-      if (!wname[0]) continue;
-
-      if (ws->panes[p].tabs[t].isArbitrary) {
-        int arbAction = ws->panes[p].tabs[t].toggleAction;
-        const char* arbCmd = ws->panes[p].tabs[t].actionCommand;
-        // If saved state has no action, check favorites for a matching entry
-        if ((!arbCmd || !arbCmd[0]) && m_favMgr) {
-          int favIdx = m_favMgr->FindByName(wname);
-          if (favIdx >= 0) {
-            const FavoriteEntry& fav = m_favMgr->Get(favIdx);
-            if (fav.actionCommand[0] && strcmp(fav.actionCommand, "0") != 0) {
-              arbAction = fav.toggleAction;
-              arbCmd = fav.actionCommand;
-              DBG("[ReDockIt] LoadWorkspace: enriched '%s' from favorites: action=%d cmd='%s'\n",
-                  wname, arbAction, arbCmd);
-            }
-          }
-        }
-        HWND h = WindowManager::FindReaperWindow(wname, m_hwnd);
-        if (h) {
-          m_winMgr.CaptureArbitraryWindow(p, h, wname, m_hwnd, arbAction, arbCmd);
-        } else {
-          m_captureQueue->EnqueueArbitrary(p, wname, arbAction, arbCmd);
-          needsCaptureTimer = true;
-        }
-      } else {
-        for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
-          if (strcmp(KNOWN_WINDOWS[j].name, wname) == 0) {
-            HWND h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].searchTitle, m_hwnd);
-            if (!h && KNOWN_WINDOWS[j].altSearchTitle) {
-              h = WindowManager::FindReaperWindow(KNOWN_WINDOWS[j].altSearchTitle, m_hwnd);
-            }
-            if (!h && g_Main_OnCommand) {
-              m_captureQueue->EnqueueKnown(p, j);
-              needsCaptureTimer = true;
-            } else if (h) {
-              m_winMgr.CaptureByIndex(p, j, m_hwnd);
-            }
-            break;
-          }
-        }
-      }
-    }
-    int at = ws->panes[p].activeTab;
-    if (at >= 0 && at < m_winMgr.GetTabCount(p)) {
-      m_winMgr.SetActiveTab(p, at);
-    }
-  }
-
-  if (needsCaptureTimer) {
-    StartCaptureTimer();
-  }
-
+  ApplyPaneState(ws->panes, MAX_PANES, false);
   m_winMgr.RepositionAll(m_tree);
   InvalidateRect(m_hwnd, nullptr, TRUE);
   SaveState();

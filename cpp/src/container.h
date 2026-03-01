@@ -19,6 +19,7 @@ struct DragState {
   bool dragStarted;
 };
 
+struct PaneSnapshot;
 class CaptureQueue;
 class FavoritesManager;
 class WorkspaceManager;
@@ -64,6 +65,7 @@ private:
   std::unique_ptr<WorkspaceManager> m_wsMgr;
   int m_shutdownGraceTicks;  // countdown after capture completes before allowing shutdown
 
+  void ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions);
   void RefreshLayout();
   void StartCaptureTimer();
   void StopCaptureTimerIfIdle();
