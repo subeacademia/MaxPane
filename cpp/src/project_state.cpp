@@ -108,8 +108,6 @@ void OnSaveExtensionConfig(ProjectStateContext* ctx, bool isUndo,
   // Access via the extern function
   ReDockItContainer* container = GetContainer();
   if (!container || !container->GetHwnd()) return;
-  // Don't write state if container is hidden — user closed ReDockIt for this project
-  if (!container->IsVisible()) return;
 
   const SplitTree& tree = container->GetTree();
   const WindowManager& winMgr = container->GetWinMgr();

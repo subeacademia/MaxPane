@@ -29,7 +29,6 @@ ReDockItContainer::ReDockItContainer()
   , m_wsMgr(std::make_unique<WorkspaceManager>())
   , m_hoverSplitter(-1)
   , m_shutdownGraceTicks(0)
-  , m_currentProject(nullptr)
   , m_pendingRppLoad(false)
 {
   m_captureMode.active = false;
@@ -53,7 +52,6 @@ bool ReDockItContainer::Create()
   if (!m_hwnd) return false;
 
   SetWindowLong(m_hwnd, GWL_USERDATA, (LONG_PTR)this);
-  m_currentProject = g_EnumProjects ? g_EnumProjects(-1, nullptr, 0) : nullptr;
   m_favMgr->Load();
   LoadState();
 
@@ -122,37 +120,14 @@ void ReDockItContainer::Show()
   m_visible = true;
 }
 
-void ReDockItContainer::Hide()
-{
-  if (!m_hwnd) return;
-  DBG("[ReDockIt] Hide: saving state and releasing windows\n");
-  SaveState();
-  m_captureQueue->CancelAll();
-  m_winMgr.ReleaseAll();
-  ShowWindow(m_hwnd, SW_HIDE);
-  m_visible = false;
-}
-
 void ReDockItContainer::Toggle()
 {
   if (!m_hwnd) { Create(); return; }
-  DBG("[ReDockIt] Toggle: m_visible=%d winVisible=%d\n", m_visible, IsWindowVisible(m_hwnd));
-  if (m_visible) {
-    // User explicitly closing — mark as not visible for next startup
-    if (g_SetExtState) {
-      g_SetExtState("ReDockIt_cpp", "was_visible", "0", true);
-    }
-    Hide();
-  } else {
-    // Re-show and reload state
-    if (g_SetExtState) {
-      g_SetExtState("ReDockIt_cpp", "was_visible", "1", true);
-    }
-    ShowWindow(m_hwnd, SW_SHOW);
-    m_visible = true;
-    LoadState();
-    RefreshLayout();
+  // User explicitly closing — mark as not visible for next startup
+  if (g_SetExtState) {
+    g_SetExtState("ReDockIt_cpp", "was_visible", "0", true);
   }
+  Shutdown();
 }
 
 bool ReDockItContainer::IsVisible() const
@@ -322,11 +297,6 @@ void ReDockItContainer::LoadState()
 
   ApplyPaneState(panes, MAX_PANES, true);
 
-  // Track the current project so OnTimer doesn't trigger a spurious
-  // OnProjectSwitch for the same project we just loaded.
-  if (g_EnumProjects) {
-    m_currentProject = g_EnumProjects(-1, nullptr, 0);
-  }
 }
 
 void ReDockItContainer::ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions)
@@ -821,169 +791,13 @@ void ReDockItContainer::OnTimer()
         m_winMgr.RepositionAll(m_tree);
         InvalidateRect(m_hwnd, nullptr, TRUE);
 
-        // Update current project tracking
-        if (g_EnumProjects) {
-          m_currentProject = g_EnumProjects(-1, nullptr, 0);
-        }
-
         DBG("[ReDockIt] OnTimer: deferred RPP state applied (nodes=%d)\n", nodeCount);
       }
     }
     g_pendingProjectState.valid = false;  // consumed
   }
 
-  // Always detect project switches, even if our window isn't visible.
-  // REAPER dockers may hide us behind another tab, but we still need
-  // to track the active project for state persistence.
-  if (g_EnumProjects) {
-    ReaProject* curProj = g_EnumProjects(-1, nullptr, 0);
-    if (curProj && curProj != m_currentProject) {
-      OnProjectSwitch(m_currentProject, curProj);
-      m_currentProject = curProj;
-    }
-  }
-
-  // Detect docker hide (REAPER [x] doesn't call hookcommand).
-  // On macOS/SWELL, IsWindowVisible only checks WS_VISIBLE flag — it doesn't
-  // reflect actual on-screen visibility. Check GetWindowRect size instead:
-  // a hidden docker panel has 0-size client area.
-  if (m_hwnd && m_visible) {
-    RECT rc;
-    GetClientRect(m_hwnd, &rc);
-    int w = rc.right - rc.left;
-    int h = rc.bottom - rc.top;
-    if (w <= 1 || h <= 1) {
-      DBG("[ReDockIt] OnTimer: docker hidden (clientRect=%dx%d), marking hidden\n", w, h);
-      SaveState();
-      m_captureQueue->CancelAll();
-      m_winMgr.ReleaseAll();
-      m_visible = false;
-    }
-  }
-
-  // Only check alive / reposition if visible
-  if (m_hwnd && m_visible) {
-    m_winMgr.CheckAlive(m_hwnd);
-  }
-}
-
-void ReDockItContainer::OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj)
-{
-  HWND parent = m_hwnd ? GetParent(m_hwnd) : nullptr;
-  HWND grandparent = parent ? GetParent(parent) : nullptr;
-  DBG("[ReDockIt] OnProjectSwitch: %p -> %p (hwnd=%p vis=%d winVis=%d parent=%p parentVis=%d gp=%p gpVis=%d)\n",
-      oldProj, newProj, (void*)m_hwnd, m_visible,
-      m_hwnd ? IsWindowVisible(m_hwnd) : 0,
-      (void*)parent, parent ? IsWindowVisible(parent) : 0,
-      (void*)grandparent, grandparent ? IsWindowVisible(grandparent) : 0);
-
-  // Save current layout to old project (if valid) and global
-  if (oldProj) {
-    m_wsMgr->SaveProjectState(oldProj, m_tree, m_winMgr);
-  }
-  m_wsMgr->SaveCurrentState(m_tree, m_winMgr);
-
-  // Collect toggle actions of currently captured windows (before release)
-  int oldActions[MAX_PANES * MAX_TABS_PER_PANE];
-  int oldActionCount = 0;
-  for (int p = 0; p < MAX_PANES; p++) {
-    const PaneState* ps = m_winMgr.GetPaneState(p);
-    if (!ps) continue;
-    for (int t = 0; t < ps->tabCount; t++) {
-      if (ps->tabs[t].captured && ps->tabs[t].toggleAction > 0) {
-        oldActions[oldActionCount++] = ps->tabs[t].toggleAction;
-      }
-    }
-  }
-
-  // Release currently captured windows (no toggle — just reparent back)
-  m_captureQueue->CancelAll();
-  m_winMgr.ReleaseAll(false);
-
-  // Load new project's layout — try RPP pending state first, then ProjExtState
-  NodeSnapshot snap[MAX_TREE_NODES];
-  int nodeCount = 0;
-  PaneSnapshot panes[MAX_PANES];
-  bool hasTreeFormat = false;
-
-  bool loaded = false;
-
-  // Check if project_config_extension_t already parsed state from RPP
-  if (g_pendingProjectState.valid) {
-    DBG("[ReDockIt] OnProjectSwitch: using pending RPP state (%d lines)\n",
-        g_pendingProjectState.lineCount);
-    RppReadAccessor rppAcc(g_pendingProjectState.lines, g_pendingProjectState.lineCount);
-    const char* treeVer = rppAcc.Get(EXT_SECTION, "tree_version");
-    hasTreeFormat = (treeVer && strcmp(treeVer, "2") == 0);
-    if (hasTreeFormat) {
-      memset(snap, 0, sizeof(snap));
-      nodeCount = WorkspaceManager::ReadTreeNodesStatic("", snap, rppAcc);
-      if (nodeCount > 0) {
-        memset(panes, 0, sizeof(panes));
-        WorkspaceManager::ReadPaneTabsStatic("", panes, MAX_PANES, rppAcc);
-        loaded = true;
-        DBG("[ReDockIt] OnProjectSwitch: loaded RPP state (nodes=%d)\n", nodeCount);
-      }
-    }
-    g_pendingProjectState.valid = false;  // consumed
-  }
-
-  if (!loaded && newProj && m_wsMgr->HasProjectState(newProj)) {
-    loaded = m_wsMgr->LoadProjectState(newProj, snap, nodeCount, panes, hasTreeFormat);
-    DBG("[ReDockIt] OnProjectSwitch: loaded per-project ProjExtState (nodes=%d)\n", nodeCount);
-  }
-
-  if (loaded && hasTreeFormat && nodeCount > 0) {
-    if (!m_tree.LoadSnapshot(snap, nodeCount)) {
-      m_tree.Reset();
-    }
-    // Re-show docker if hidden (user may have closed it on another project tab)
-    if (!IsWindowVisible(m_hwnd)) {
-      DBG("[ReDockIt] OnProjectSwitch: re-showing docker for project with state\n");
-      ShowWindow(m_hwnd, SW_SHOW);
-    }
-    m_visible = true;
-  } else {
-    DBG("[ReDockIt] OnProjectSwitch: no per-project state, showing empty panes\n");
-    memset(panes, 0, sizeof(panes));
-  }
-
-  RECT rc;
-  GetClientRect(m_hwnd, &rc);
-  m_tree.Recalculate(rc.right - rc.left, rc.bottom - rc.top);
-  ApplyPaneState(panes, MAX_PANES, false);
-  m_winMgr.RepositionAll(m_tree);
-  InvalidateRect(m_hwnd, nullptr, TRUE);
-
-  // Toggle off old windows that are not captured in the new project state
-  for (int i = 0; i < oldActionCount; i++) {
-    bool stillCaptured = false;
-    for (int p = 0; p < MAX_PANES && !stillCaptured; p++) {
-      const PaneState* ps = m_winMgr.GetPaneState(p);
-      if (!ps) continue;
-      for (int t = 0; t < ps->tabCount; t++) {
-        if (ps->tabs[t].captured && ps->tabs[t].toggleAction == oldActions[i]) {
-          stillCaptured = true;
-          break;
-        }
-      }
-    }
-    if (!stillCaptured && g_Main_OnCommand) {
-      // Guard: only toggle if REAPER thinks window is open
-      bool shouldToggle = true;
-      if (g_GetToggleCommandState) {
-        int state = g_GetToggleCommandState(oldActions[i]);
-        if (state == 0) {
-          DBG("[ReDockIt] OnProjectSwitch: skipping toggle for action %d (state=0)\n", oldActions[i]);
-          shouldToggle = false;
-        }
-      }
-      if (shouldToggle) {
-        DBG("[ReDockIt] OnProjectSwitch: toggling off orphaned action %d\n", oldActions[i]);
-        g_Main_OnCommand(oldActions[i], 0);
-      }
-    }
-  }
+  m_winMgr.CheckAlive(m_hwnd);
 }
 
 // =========================================================================

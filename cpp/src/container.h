@@ -20,7 +20,6 @@ struct DragState {
 };
 
 struct PaneSnapshot;
-class ReaProject;
 class CaptureQueue;
 class FavoritesManager;
 class WorkspaceManager;
@@ -33,7 +32,6 @@ public:
   bool Create();
   void Shutdown();
   void Show();
-  void Hide();
   void Toggle();
   bool IsVisible() const;
 
@@ -67,7 +65,6 @@ private:
   std::unique_ptr<WorkspaceManager> m_wsMgr;
   int m_hoverSplitter;      // branch index of splitter under mouse, -1 when none
   int m_shutdownGraceTicks;  // countdown after capture completes before allowing shutdown
-  ReaProject* m_currentProject;
   bool m_pendingRppLoad;     // true if waiting for RPP state to become available
 
   void ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions);
@@ -80,7 +77,6 @@ private:
   void OnMouseMove(int x, int y);
   void OnLButtonUp(int x, int y);
   void OnTimer();
-  void OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj);
   void OnContextMenu(int x, int y);
   void DrawTabBar(HDC hdc, int paneId, const RECT& paneRect);
 
