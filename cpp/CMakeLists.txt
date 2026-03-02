@@ -32,6 +32,7 @@ target_include_directories(reaper_redockit PRIVATE
 target_compile_definitions(reaper_redockit PRIVATE
   SWELL_PROVIDED_BY_APP
   $<$<CONFIG:Debug>:REDOCKIT_DEBUG>
+  $<$<PLATFORM_ID:Windows>:NOMINMAX>
 )
 
 target_compile_options(reaper_redockit PRIVATE
