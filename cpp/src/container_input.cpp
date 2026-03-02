@@ -15,9 +15,93 @@ int ReDockItContainer::PaneAtPoint(int x, int y) const
 }
 
 // =========================================================================
+// Tab bar layout calculation (shared by draw, hit-test, close-button)
+// =========================================================================
+
+ReDockItContainer::TabBarLayout ReDockItContainer::CalcTabBarLayout(int paneId) const
+{
+  TabBarLayout lay = {};
+  const PaneState* ps = m_winMgr.GetPaneState(paneId);
+  if (!ps || ps->tabCount == 0) return lay;
+
+  const RECT& r = m_tree.GetPaneRect(paneId);
+  int paneWidth = r.right - r.left;
+  int totalWidth = paneWidth - PANE_MENU_BTN_WIDTH;
+  if (totalWidth < TAB_MIN_WIDTH) totalWidth = TAB_MIN_WIDTH;
+
+  int capacity = totalWidth / TAB_MIN_WIDTH;
+  if (capacity < 1) capacity = 1;
+
+  if (ps->tabCount <= capacity) {
+    // No overflow
+    lay.hasOverflow = false;
+    lay.hasLeftArrow = false;
+    lay.hasRightArrow = false;
+    lay.firstVisible = 0;
+    lay.visibleCount = ps->tabCount;
+    lay.tabAreaLeft = r.left;
+    lay.tabAreaRight = r.left + totalWidth;
+    lay.tabWidth = totalWidth / ps->tabCount;
+    if (lay.tabWidth > TAB_MAX_WIDTH) lay.tabWidth = TAB_MAX_WIDTH;
+  } else {
+    // Overflow: reserve space for arrows
+    lay.hasOverflow = true;
+    int arrowSpace = 2 * TAB_SCROLL_ARROW_WIDTH;
+    int tabAreaWidth = totalWidth - arrowSpace;
+    if (tabAreaWidth < TAB_MIN_WIDTH) tabAreaWidth = TAB_MIN_WIDTH;
+
+    lay.visibleCount = tabAreaWidth / TAB_MIN_WIDTH;
+    if (lay.visibleCount < 1) lay.visibleCount = 1;
+    if (lay.visibleCount > ps->tabCount) lay.visibleCount = ps->tabCount;
+
+    // Clamp scroll offset
+    int maxOffset = ps->tabCount - lay.visibleCount;
+    if (maxOffset < 0) maxOffset = 0;
+    int offset = m_tabScrollOffset[paneId];
+    if (offset < 0) offset = 0;
+    if (offset > maxOffset) offset = maxOffset;
+
+    lay.firstVisible = offset;
+    lay.hasLeftArrow = (offset > 0);
+    lay.hasRightArrow = (offset + lay.visibleCount < ps->tabCount);
+
+    lay.tabAreaLeft = r.left + TAB_SCROLL_ARROW_WIDTH;
+    lay.tabAreaRight = lay.tabAreaLeft + tabAreaWidth;
+    lay.tabWidth = tabAreaWidth / lay.visibleCount;
+    if (lay.tabWidth < TAB_MIN_WIDTH) lay.tabWidth = TAB_MIN_WIDTH;
+    if (lay.tabWidth > TAB_MAX_WIDTH) lay.tabWidth = TAB_MAX_WIDTH;
+  }
+
+  return lay;
+}
+
+RECT ReDockItContainer::GetTabRect(int paneId, int tabIdx) const
+{
+  const RECT& r = m_tree.GetPaneRect(paneId);
+  int tabBarTop = r.top;
+  int tabBarBottom = tabBarTop + TAB_BAR_HEIGHT;
+  TabBarLayout lay = CalcTabBarLayout(paneId);
+
+  // If tab is not in visible range, return empty rect
+  if (tabIdx < lay.firstVisible || tabIdx >= lay.firstVisible + lay.visibleCount) {
+    RECT empty = {0, 0, 0, 0};
+    return empty;
+  }
+
+  int displayIdx = tabIdx - lay.firstVisible;
+  int tabLeft = lay.tabAreaLeft + displayIdx * lay.tabWidth;
+  int tabRight = tabLeft + lay.tabWidth;
+  if (tabRight > lay.tabAreaRight) tabRight = lay.tabAreaRight;
+
+  RECT tr = { tabLeft, tabBarTop, tabRight, tabBarBottom };
+  return tr;
+}
+
+// =========================================================================
 // Tab hit testing
 // =========================================================================
 
+// Returns: >=0 tab index, -1 miss, -2 menu button, -3 left arrow, -4 right arrow
 int ReDockItContainer::TabHitTest(int paneId, int x, int y) const
 {
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
@@ -29,14 +113,24 @@ int ReDockItContainer::TabHitTest(int paneId, int x, int y) const
 
   if (y < tabBarTop || y >= tabBarBottom) return -1;
 
-  int paneWidth = paneRect.right - paneRect.left;
-  int tabWidth = paneWidth / ps->tabCount;
-  if (tabWidth < TAB_MIN_WIDTH) tabWidth = TAB_MIN_WIDTH;
-  if (tabWidth > TAB_MAX_WIDTH) tabWidth = TAB_MAX_WIDTH;
+  // Menu button (rightmost PANE_MENU_BTN_WIDTH pixels)
+  if (x >= paneRect.right - PANE_MENU_BTN_WIDTH) return -2;
 
-  int relX = x - paneRect.left;
-  int tabIdx = relX / tabWidth;
-  if (tabIdx < 0 || tabIdx >= ps->tabCount) return -1;
+  TabBarLayout lay = CalcTabBarLayout(paneId);
+
+  // Left scroll arrow
+  if (lay.hasLeftArrow && x >= paneRect.left && x < lay.tabAreaLeft) return -3;
+
+  // Right scroll arrow
+  if (lay.hasRightArrow && x >= lay.tabAreaRight && x < paneRect.right - PANE_MENU_BTN_WIDTH) return -4;
+
+  // Tab area
+  if (x < lay.tabAreaLeft || x >= lay.tabAreaRight) return -1;
+  int relX = x - lay.tabAreaLeft;
+  int displayIdx = relX / lay.tabWidth;
+  if (displayIdx < 0 || displayIdx >= lay.visibleCount) return -1;
+  int tabIdx = lay.firstVisible + displayIdx;
+  if (tabIdx >= ps->tabCount) return -1;
   return tabIdx;
 }
 
@@ -45,18 +139,12 @@ bool ReDockItContainer::IsOnTabCloseButton(int paneId, int tabIndex, int x, int 
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || tabIndex < 0 || tabIndex >= ps->tabCount) return false;
 
-  const RECT& paneRect = m_tree.GetPaneRect(paneId);
-  int tabBarTop = paneRect.top;
+  RECT tr = GetTabRect(paneId, tabIndex);
+  // Empty rect means tab not visible
+  if (tr.left == 0 && tr.right == 0) return false;
 
-  int paneWidth = paneRect.right - paneRect.left;
-  int tabWidth = paneWidth / ps->tabCount;
-  if (tabWidth < TAB_MIN_WIDTH) tabWidth = TAB_MIN_WIDTH;
-  if (tabWidth > TAB_MAX_WIDTH) tabWidth = TAB_MAX_WIDTH;
-
-  int tabRight = paneRect.left + (tabIndex + 1) * tabWidth;
-  if (tabRight > paneRect.right) tabRight = paneRect.right;
-
-  int closeRight = tabRight - CLOSE_BTN_RIGHT_MARGIN;
+  int tabBarTop = m_tree.GetPaneRect(paneId).top;
+  int closeRight = tr.right - CLOSE_BTN_RIGHT_MARGIN;
   int closeLeft = closeRight - CLOSE_BTN_WIDTH;
   int closeTop = tabBarTop + CLOSE_BTN_VERT_MARGIN;
   int closeBottom = tabBarTop + TAB_BAR_HEIGHT - CLOSE_BTN_VERT_MARGIN;
@@ -190,21 +278,21 @@ void ReDockItContainer::OnMouseMove(int x, int y)
       KillTimer(m_hwnd, TIMER_ID_HOVER);
   }
 
-  // Hover highlight for tabs
+  // Hover highlight for tabs and menu button
   int hPane = -1, hTab = -1;
   for (int i = 0; i < m_tree.GetLeafCount(); i++) {
     int paneId = m_tree.GetPaneId(m_tree.GetLeafList()[i]);
     if (paneId < 0) continue;
     int t = TabHitTest(paneId, x, y);
-    if (t >= 0) { hPane = paneId; hTab = t; break; }
+    if (t != -1) { hPane = paneId; hTab = t; break; }
   }
   if (hPane != m_hoverPane || hTab != m_hoverTab) {
     m_hoverPane = hPane;
     m_hoverTab = hTab;
     InvalidateRect(m_hwnd, nullptr, TRUE);
-    if (hTab >= 0 && m_hoverSplitter < 0)
+    if (hTab != -1 && m_hoverSplitter < 0)
       SetTimer(m_hwnd, TIMER_ID_HOVER, 60, nullptr);
-    else if (hTab < 0 && m_hoverSplitter < 0)
+    else if (hTab == -1 && m_hoverSplitter < 0)
       KillTimer(m_hwnd, TIMER_ID_HOVER);
   }
 }

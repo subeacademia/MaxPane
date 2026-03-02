@@ -101,19 +101,37 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
 
   int tabBarTop = paneRect.top;
   int tabBarBottom = tabBarTop + TAB_BAR_HEIGHT;
-  int paneWidth = paneRect.right - paneRect.left;
 
   RECT barRect = { paneRect.left, tabBarTop, paneRect.right, tabBarBottom };
   if (m_brushTabBarBg) FillRect(hdc, &barRect, m_brushTabBarBg);
 
-  int tabWidth = paneWidth / ps->tabCount;
-  if (tabWidth < TAB_MIN_WIDTH) tabWidth = TAB_MIN_WIDTH;
-  if (tabWidth > TAB_MAX_WIDTH) tabWidth = TAB_MAX_WIDTH;
+  TabBarLayout lay = CalcTabBarLayout(paneId);
 
-  for (int t = 0; t < ps->tabCount; t++) {
-    int tabLeft = paneRect.left + t * tabWidth;
-    int tabRight = tabLeft + tabWidth;
-    if (tabRight > paneRect.right) tabRight = paneRect.right;
+  // Draw scroll arrows if overflow
+  if (lay.hasOverflow) {
+    SetBkMode(hdc, TRANSPARENT);
+
+    // Left arrow <
+    RECT leftArrow = { paneRect.left, tabBarTop, paneRect.left + TAB_SCROLL_ARROW_WIDTH, tabBarBottom };
+    COLORREF arrowColor = lay.hasLeftArrow ? RGB(210, 210, 210) : RGB(90, 90, 90);
+    SetTextColor(hdc, arrowColor);
+    DrawText(hdc, "<", 1, &leftArrow, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+    // Right arrow >
+    RECT rightArrow = { lay.tabAreaRight, tabBarTop, lay.tabAreaRight + TAB_SCROLL_ARROW_WIDTH, tabBarBottom };
+    arrowColor = lay.hasRightArrow ? RGB(210, 210, 210) : RGB(90, 90, 90);
+    SetTextColor(hdc, arrowColor);
+    DrawText(hdc, ">", 1, &rightArrow, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+  }
+
+  // Draw visible tabs
+  for (int di = 0; di < lay.visibleCount; di++) {
+    int t = lay.firstVisible + di;
+    if (t >= ps->tabCount) break;
+
+    int tabLeft = lay.tabAreaLeft + di * lay.tabWidth;
+    int tabRight = tabLeft + lay.tabWidth;
+    if (tabRight > lay.tabAreaRight) tabRight = lay.tabAreaRight;
 
     RECT tabRect = { tabLeft, tabBarTop, tabRight, tabBarBottom };
 
@@ -122,19 +140,13 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
       bool isHover = (paneId == m_hoverPane && t == m_hoverTab);
       bool hasCustomColor = (ci > 0 && ci < TAB_COLOR_COUNT);
       if (!isHover && !hasCustomColor) {
-        // Fast path: use cached brush for default colors
         HBRUSH cached = (t == ps->activeTab) ? m_brushTabActive : m_brushTabInactive;
         if (cached) FillRect(hdc, &tabRect, cached);
       } else {
-        // Dynamic color: custom tab color and/or hover highlight
         COLORREF bgColor;
         if (hasCustomColor) {
           const TabColor& tc = TAB_COLORS[ci];
-          if (t == ps->activeTab) {
-            bgColor = RGB(tc.r, tc.g, tc.b);
-          } else {
-            bgColor = RGB(tc.r / 2, tc.g / 2, tc.b / 2);
-          }
+          bgColor = (t == ps->activeTab) ? RGB(tc.r, tc.g, tc.b) : RGB(tc.r / 2, tc.g / 2, tc.b / 2);
         } else {
           bgColor = (t == ps->activeTab) ? COLOR_TAB_ACTIVE_BG : COLOR_TAB_INACTIVE_BG;
         }
@@ -162,7 +174,7 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
     RECT closeRect = { tabRight - 16, tabBarTop + 2, tabRight - 2, tabBarBottom - 2 };
     DrawText(hdc, "x", 1, &closeRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    if (t < ps->tabCount - 1) {
+    if (di < lay.visibleCount - 1) {
       HPEN sepPen = CreatePen(PS_SOLID, 1, COLOR_TAB_SEPARATOR);
       HPEN oldPen = (HPEN)SelectObject(hdc, sepPen);
       MoveToEx(hdc, tabRight, tabBarTop + 2, nullptr);
@@ -170,5 +182,27 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
       SelectObject(hdc, oldPen);
       DeleteObject(sepPen);
     }
+  }
+
+  // Draw pane menu button (▼) — rightmost PANE_MENU_BTN_WIDTH px
+  {
+    bool menuBtnHover = (paneId == m_hoverPane && m_hoverTab == -2);
+    RECT btnRect = { paneRect.right - PANE_MENU_BTN_WIDTH, tabBarTop, paneRect.right, tabBarBottom };
+    if (menuBtnHover) {
+      HBRUSH hoverBrush = CreateSolidBrush(RGB(70, 70, 70));
+      FillRect(hdc, &btnRect, hoverBrush);
+      DeleteObject(hoverBrush);
+    }
+    // Separator line left of button
+    HPEN sepPen = CreatePen(PS_SOLID, 1, COLOR_TAB_SEPARATOR);
+    HPEN oldPen = (HPEN)SelectObject(hdc, sepPen);
+    MoveToEx(hdc, paneRect.right - PANE_MENU_BTN_WIDTH, tabBarTop + 2, nullptr);
+    LineTo(hdc, paneRect.right - PANE_MENU_BTN_WIDTH, tabBarBottom - 2);
+    SelectObject(hdc, oldPen);
+    DeleteObject(sepPen);
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, menuBtnHover ? RGB(220, 220, 220) : RGB(150, 150, 150));
+    DrawText(hdc, "\x1F", 1, &btnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
   }
 }

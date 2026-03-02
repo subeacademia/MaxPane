@@ -102,6 +102,13 @@ static const int CLOSE_BTN_VERT_MARGIN  = 3;
 static const int TAB_TEXT_LEFT_PAD      = 4;
 static const int TAB_TEXT_RIGHT_MARGIN  = 16;
 
+// Pane menu button (▼) in tab bar
+static const int PANE_MENU_BTN_WIDTH   = 16;
+static const int PANE_MENU_BTN_MARGIN  = 2;
+
+// Tab overflow scroll arrows
+static const int TAB_SCROLL_ARROW_WIDTH = 14;
+
 // =========================================================================
 // Timing constants
 // =========================================================================

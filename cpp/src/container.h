@@ -65,8 +65,9 @@ private:
   std::unique_ptr<WorkspaceManager> m_wsMgr;
   int m_hoverSplitter;      // branch index of splitter under mouse, -1 when none
   int m_hoverPane;          // pane id of tab under mouse, -1 when none
-  int m_hoverTab;           // tab index under mouse, -1 when none
+  int m_hoverTab;           // tab index under mouse, -1 when none; -2 = menu button
   bool m_pendingRppLoad;     // true if waiting for RPP state to become available
+  int m_tabScrollOffset[MAX_PANES];  // index of first visible tab (overflow scroll)
 
   // GDI brush cache (created once in constructor, destroyed in destructor)
   HBRUSH m_brushTabBarBg = nullptr;
@@ -91,6 +92,20 @@ private:
   void OnContextMenu(int x, int y);
   void DrawTabBar(HDC hdc, int paneId, const RECT& paneRect);
 
+  // Tab bar layout calculation (shared by draw + hit-test)
+  struct TabBarLayout {
+    int tabWidth;        // width of one visible tab
+    int firstVisible;    // = scrollOffset (clamped)
+    int visibleCount;    // how many tabs are visible
+    int tabAreaLeft;     // left edge (after optional < arrow)
+    int tabAreaRight;    // right edge (before optional > arrow)
+    bool hasLeftArrow;   // scrollOffset > 0
+    bool hasRightArrow;  // scrollOffset + visibleCount < tabCount
+    bool hasOverflow;    // tabCount > capacity (arrows needed)
+  };
+  TabBarLayout CalcTabBarLayout(int paneId) const;
+  RECT GetTabRect(int paneId, int tabIdx) const;
+
   // Tab hit testing
   int TabHitTest(int paneId, int x, int y) const;
   bool IsOnTabCloseButton(int paneId, int tabIndex, int x, int y) const;
@@ -102,6 +117,9 @@ private:
   void CancelTabDrag();
 
   int PaneAtPoint(int x, int y) const;
+
+  // Pane menu button (▼ in tab bar)
+  void OnPaneMenuButtonClick(int paneId, int x, int y);
 
   // Context menu command dispatch
   void HandleTabMenuCommand(int cmd, int paneId, int tabIdx);

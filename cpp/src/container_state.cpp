@@ -33,6 +33,9 @@ void ReDockItContainer::LoadState()
 {
   if (!g_GetExtState) return;
 
+  // Reset tab scroll offsets (UI-only state, not persisted)
+  memset(m_tabScrollOffset, 0, sizeof(m_tabScrollOffset));
+
   // Clean up stale windows from a previous workspace switch.
   // During workspace switching we don't toggle off unused windows (to preserve
   // HWNDs and avoid rendering breakage).  Instead we record their action IDs
@@ -217,6 +220,9 @@ void ReDockItContainer::LoadWorkspace(const char* name)
 
   const WorkspaceEntry* ws = m_wsMgr->Find(name);
   if (!ws) return;
+
+  // Reset tab scroll offsets (UI-only state, not persisted)
+  memset(m_tabScrollOffset, 0, sizeof(m_tabScrollOffset));
 
   // --- Stale action tracking ---
   // Build set of toggle-action IDs in the NEW workspace.
