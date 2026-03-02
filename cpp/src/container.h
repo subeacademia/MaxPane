@@ -67,7 +67,6 @@ private:
   int m_hoverPane;          // pane id of tab under mouse, -1 when none
   int m_hoverTab;           // tab index under mouse, -1 when none; -2 = menu button
   bool m_pendingRppLoad;     // true if waiting for RPP state to become available
-  int m_tabScrollOffset[MAX_PANES];  // index of first visible tab (overflow scroll)
 
   // GDI brush cache (created once in constructor, destroyed in destructor)
   HBRUSH m_brushTabBarBg = nullptr;
@@ -94,14 +93,9 @@ private:
 
   // Tab bar layout calculation (shared by draw + hit-test)
   struct TabBarLayout {
-    int tabWidth;        // width of one visible tab
-    int firstVisible;    // = scrollOffset (clamped)
-    int visibleCount;    // how many tabs are visible
-    int tabAreaLeft;     // left edge (after optional < arrow)
-    int tabAreaRight;    // right edge (before optional > arrow)
-    bool hasLeftArrow;   // scrollOffset > 0
-    bool hasRightArrow;  // scrollOffset + visibleCount < tabCount
-    bool hasOverflow;    // tabCount > capacity (arrows needed)
+    int tabWidth;      // width of each tab
+    int tabAreaLeft;   // left edge of tab area (= paneRect.left)
+    int tabAreaRight;  // right edge of tab area (before menu button)
   };
   TabBarLayout CalcTabBarLayout(int paneId) const;
   RECT GetTabRect(int paneId, int tabIdx) const;

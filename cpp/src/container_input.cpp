@@ -25,52 +25,14 @@ ReDockItContainer::TabBarLayout ReDockItContainer::CalcTabBarLayout(int paneId) 
   if (!ps || ps->tabCount == 0) return lay;
 
   const RECT& r = m_tree.GetPaneRect(paneId);
-  int paneWidth = r.right - r.left;
-  int totalWidth = paneWidth - PANE_MENU_BTN_WIDTH;
+  int totalWidth = (r.right - r.left) - PANE_MENU_BTN_WIDTH;
   if (totalWidth < TAB_MIN_WIDTH) totalWidth = TAB_MIN_WIDTH;
 
-  int capacity = totalWidth / TAB_MIN_WIDTH;
-  if (capacity < 1) capacity = 1;
-
-  if (ps->tabCount <= capacity) {
-    // No overflow
-    lay.hasOverflow = false;
-    lay.hasLeftArrow = false;
-    lay.hasRightArrow = false;
-    lay.firstVisible = 0;
-    lay.visibleCount = ps->tabCount;
-    lay.tabAreaLeft = r.left;
-    lay.tabAreaRight = r.left + totalWidth;
-    lay.tabWidth = totalWidth / ps->tabCount;
-    if (lay.tabWidth > TAB_MAX_WIDTH) lay.tabWidth = TAB_MAX_WIDTH;
-  } else {
-    // Overflow: reserve space for arrows
-    lay.hasOverflow = true;
-    int arrowSpace = 2 * TAB_SCROLL_ARROW_WIDTH;
-    int tabAreaWidth = totalWidth - arrowSpace;
-    if (tabAreaWidth < TAB_MIN_WIDTH) tabAreaWidth = TAB_MIN_WIDTH;
-
-    lay.visibleCount = tabAreaWidth / TAB_MIN_WIDTH;
-    if (lay.visibleCount < 1) lay.visibleCount = 1;
-    if (lay.visibleCount > ps->tabCount) lay.visibleCount = ps->tabCount;
-
-    // Clamp scroll offset
-    int maxOffset = ps->tabCount - lay.visibleCount;
-    if (maxOffset < 0) maxOffset = 0;
-    int offset = m_tabScrollOffset[paneId];
-    if (offset < 0) offset = 0;
-    if (offset > maxOffset) offset = maxOffset;
-
-    lay.firstVisible = offset;
-    lay.hasLeftArrow = (offset > 0);
-    lay.hasRightArrow = (offset + lay.visibleCount < ps->tabCount);
-
-    lay.tabAreaLeft = r.left + TAB_SCROLL_ARROW_WIDTH;
-    lay.tabAreaRight = lay.tabAreaLeft + tabAreaWidth;
-    lay.tabWidth = tabAreaWidth / lay.visibleCount;
-    if (lay.tabWidth < TAB_MIN_WIDTH) lay.tabWidth = TAB_MIN_WIDTH;
-    if (lay.tabWidth > TAB_MAX_WIDTH) lay.tabWidth = TAB_MAX_WIDTH;
-  }
+  lay.tabAreaLeft  = r.left;
+  lay.tabAreaRight = r.left + totalWidth;
+  lay.tabWidth     = totalWidth / ps->tabCount;
+  if (lay.tabWidth > TAB_MAX_WIDTH) lay.tabWidth = TAB_MAX_WIDTH;
+  if (lay.tabWidth < 1) lay.tabWidth = 1;
 
   return lay;
 }
@@ -82,14 +44,7 @@ RECT ReDockItContainer::GetTabRect(int paneId, int tabIdx) const
   int tabBarBottom = tabBarTop + TAB_BAR_HEIGHT;
   TabBarLayout lay = CalcTabBarLayout(paneId);
 
-  // If tab is not in visible range, return empty rect
-  if (tabIdx < lay.firstVisible || tabIdx >= lay.firstVisible + lay.visibleCount) {
-    RECT empty = {0, 0, 0, 0};
-    return empty;
-  }
-
-  int displayIdx = tabIdx - lay.firstVisible;
-  int tabLeft = lay.tabAreaLeft + displayIdx * lay.tabWidth;
+  int tabLeft  = lay.tabAreaLeft + tabIdx * lay.tabWidth;
   int tabRight = tabLeft + lay.tabWidth;
   if (tabRight > lay.tabAreaRight) tabRight = lay.tabAreaRight;
 
@@ -112,25 +67,18 @@ int ReDockItContainer::TabHitTest(int paneId, int x, int y) const
   int tabBarBottom = tabBarTop + TAB_BAR_HEIGHT;
 
   if (y < tabBarTop || y >= tabBarBottom) return -1;
+  if (x < paneRect.left || x >= paneRect.right) return -1;
 
   // Menu button (rightmost PANE_MENU_BTN_WIDTH pixels)
   if (x >= paneRect.right - PANE_MENU_BTN_WIDTH) return -2;
 
   TabBarLayout lay = CalcTabBarLayout(paneId);
 
-  // Left scroll arrow
-  if (lay.hasLeftArrow && x >= paneRect.left && x < lay.tabAreaLeft) return -3;
-
-  // Right scroll arrow
-  if (lay.hasRightArrow && x >= lay.tabAreaRight && x < paneRect.right - PANE_MENU_BTN_WIDTH) return -4;
-
   // Tab area
   if (x < lay.tabAreaLeft || x >= lay.tabAreaRight) return -1;
   int relX = x - lay.tabAreaLeft;
-  int displayIdx = relX / lay.tabWidth;
-  if (displayIdx < 0 || displayIdx >= lay.visibleCount) return -1;
-  int tabIdx = lay.firstVisible + displayIdx;
-  if (tabIdx >= ps->tabCount) return -1;
+  int tabIdx = relX / lay.tabWidth;
+  if (tabIdx < 0 || tabIdx >= ps->tabCount) return -1;
   return tabIdx;
 }
 
@@ -168,9 +116,10 @@ void ReDockItContainer::StartTabDrag(int paneId, int tabIndex, int x, int y)
   SetCapture(m_hwnd);
 }
 
-// Expand dirty rect to include src (in-place union, handles empty dst)
+// Expand dirty rect to include src (in-place union, handles empty dst/src)
 static void ExpandRect(RECT& dst, const RECT& src)
 {
+  if (src.right <= src.left || src.bottom <= src.top) return;  // src empty — skip
   if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
   if (src.left   < dst.left)   dst.left   = src.left;
   if (src.top    < dst.top)    dst.top    = src.top;
@@ -362,6 +311,7 @@ void ReDockItContainer::OnMouseMove(int x, int y)
     m_hoverTab = hTab;
 
     if (dirty.right > dirty.left) InvalidateRect(m_hwnd, &dirty, TRUE);
+    else InvalidateRect(m_hwnd, nullptr, TRUE);
 
     if (hTab != -1 && m_hoverSplitter < 0)
       SetTimer(m_hwnd, TIMER_ID_HOVER, 60, nullptr);

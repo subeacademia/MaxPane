@@ -106,8 +106,6 @@ static const int TAB_TEXT_RIGHT_MARGIN  = 16;
 static const int PANE_MENU_BTN_WIDTH   = 16;
 static const int PANE_MENU_BTN_MARGIN  = 2;
 
-// Tab overflow scroll arrows
-static const int TAB_SCROLL_ARROW_WIDTH = 14;
 
 // =========================================================================
 // Timing constants

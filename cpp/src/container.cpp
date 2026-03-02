@@ -42,7 +42,6 @@ ReDockItContainer::ReDockItContainer()
   memset(&m_dragState, 0, sizeof(m_dragState));
   m_dragState.sourcePaneId = -1;
   m_dragState.highlightPaneId = -1;
-  memset(m_tabScrollOffset, 0, sizeof(m_tabScrollOffset));
   m_winMgr.Init();
 
   // Create cached GDI brushes for static colors
@@ -343,36 +342,11 @@ void ReDockItContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
 {
   if (cmd == MenuIds::TAB_CLOSE) {
     m_winMgr.CloseTab(paneId, tabIdx);
-    // Clamp scroll offset after tab removal
-    {
-      const PaneState* ps = m_winMgr.GetPaneState(paneId);
-      if (ps && ps->tabCount > 0) {
-        TabBarLayout lay = CalcTabBarLayout(paneId);
-        int maxOff = ps->tabCount - lay.visibleCount;
-        if (maxOff < 0) maxOff = 0;
-        if (m_tabScrollOffset[paneId] > maxOff) m_tabScrollOffset[paneId] = maxOff;
-      } else {
-        m_tabScrollOffset[paneId] = 0;
-      }
-    }
     RefreshLayout();
     SaveState();
   } else if (cmd >= MenuIds::TAB_MOVE_BASE && cmd < MenuIds::TAB_MOVE_BASE + MAX_PANES) {
     int targetPane = cmd - MenuIds::TAB_MOVE_BASE;
     m_winMgr.MoveTab(paneId, tabIdx, targetPane);
-    // Clamp scroll offsets for both affected panes
-    for (int p : {paneId, targetPane}) {
-      if (p < 0 || p >= MAX_PANES) continue;
-      const PaneState* ps = m_winMgr.GetPaneState(p);
-      if (ps && ps->tabCount > 0) {
-        TabBarLayout lay = CalcTabBarLayout(p);
-        int maxOff = ps->tabCount - lay.visibleCount;
-        if (maxOff < 0) maxOff = 0;
-        if (m_tabScrollOffset[p] > maxOff) m_tabScrollOffset[p] = maxOff;
-      } else {
-        m_tabScrollOffset[p] = 0;
-      }
-    }
     RefreshLayout();
     SaveState();
   } else if (cmd >= MenuIds::TAB_COLOR_BASE && cmd < MenuIds::TAB_COLOR_BASE + TAB_COLOR_COUNT) {
@@ -710,41 +684,9 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
             // Pane menu button ▼
             self->OnPaneMenuButtonClick(paneId, x, y);
             return 0;
-          } else if (tabIdx == -3) {
-            // Left scroll arrow
-            if (self->m_tabScrollOffset[paneId] > 0) {
-              self->m_tabScrollOffset[paneId]--;
-              InvalidateRect(hwnd, nullptr, TRUE);
-            }
-            return 0;
-          } else if (tabIdx == -4) {
-            // Right scroll arrow
-            const PaneState* ps = self->m_winMgr.GetPaneState(paneId);
-            if (ps) {
-              TabBarLayout lay = self->CalcTabBarLayout(paneId);
-              int maxOffset = ps->tabCount - lay.visibleCount;
-              if (self->m_tabScrollOffset[paneId] < maxOffset) {
-                self->m_tabScrollOffset[paneId]++;
-                InvalidateRect(hwnd, nullptr, TRUE);
-              }
-            }
-            return 0;
           } else if (tabIdx >= 0) {
             if (self->IsOnTabCloseButton(paneId, tabIdx, x, y)) {
               self->m_winMgr.CloseTab(paneId, tabIdx);
-              // Clamp scroll offset after tab removal
-              {
-                const PaneState* ps = self->m_winMgr.GetPaneState(paneId);
-                if (ps && ps->tabCount > 0) {
-                  TabBarLayout lay = self->CalcTabBarLayout(paneId);
-                  int maxOff = ps->tabCount - lay.visibleCount;
-                  if (maxOff < 0) maxOff = 0;
-                  if (self->m_tabScrollOffset[paneId] > maxOff)
-                    self->m_tabScrollOffset[paneId] = maxOff;
-                } else {
-                  self->m_tabScrollOffset[paneId] = 0;
-                }
-              }
               self->RefreshLayout();
               self->SaveState();
             } else {

@@ -107,26 +107,9 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
 
   TabBarLayout lay = CalcTabBarLayout(paneId);
 
-  // Draw scroll arrows if overflow
-  if (lay.hasOverflow) {
-    SetBkMode(hdc, TRANSPARENT);
-
-    // Left arrow <
-    RECT leftArrow = { paneRect.left, tabBarTop, paneRect.left + TAB_SCROLL_ARROW_WIDTH, tabBarBottom };
-    COLORREF arrowColor = lay.hasLeftArrow ? RGB(210, 210, 210) : RGB(90, 90, 90);
-    SetTextColor(hdc, arrowColor);
-    DrawText(hdc, "<", 1, &leftArrow, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-
-    // Right arrow >
-    RECT rightArrow = { lay.tabAreaRight, tabBarTop, lay.tabAreaRight + TAB_SCROLL_ARROW_WIDTH, tabBarBottom };
-    arrowColor = lay.hasRightArrow ? RGB(210, 210, 210) : RGB(90, 90, 90);
-    SetTextColor(hdc, arrowColor);
-    DrawText(hdc, ">", 1, &rightArrow, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-  }
-
-  // Draw visible tabs
-  for (int di = 0; di < lay.visibleCount; di++) {
-    int t = lay.firstVisible + di;
+  // Draw tabs
+  for (int t = 0; t < ps->tabCount; t++) {
+    int di = t;
     if (t >= ps->tabCount) break;
 
     int tabLeft = lay.tabAreaLeft + di * lay.tabWidth;
@@ -174,7 +157,7 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
     RECT closeRect = { tabRight - 16, tabBarTop + 2, tabRight - 2, tabBarBottom - 2 };
     DrawText(hdc, "x", 1, &closeRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    if (di < lay.visibleCount - 1) {
+    if (t < ps->tabCount - 1) {
       HPEN sepPen = CreatePen(PS_SOLID, 1, COLOR_TAB_SEPARATOR);
       HPEN oldPen = (HPEN)SelectObject(hdc, sepPen);
       MoveToEx(hdc, tabRight, tabBarTop + 2, nullptr);
@@ -202,7 +185,7 @@ void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
     DeleteObject(sepPen);
 
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, menuBtnHover ? RGB(220, 220, 220) : RGB(150, 150, 150));
-    DrawText(hdc, "\x1F", 1, &btnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    SetTextColor(hdc, menuBtnHover ? RGB(230, 230, 230) : RGB(190, 190, 190));
+    DrawText(hdc, "\xe2\x96\xbc", -1, &btnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
   }
 }
