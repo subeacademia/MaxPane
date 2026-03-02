@@ -1,4 +1,5 @@
 #include "window_manager.h"
+#include "swell_cocoa_helpers.h"
 #include "globals.h"
 #include "debug.h"
 #include <cstring>
@@ -43,6 +44,10 @@ static BOOL CALLBACK FindWindowEnumProc(HWND hwnd, LPARAM lParam)
   if (!buf[0]) return TRUE;
 
   if (strstr(buf, "toolbar") || strstr(buf, "Toolbar")) return TRUE;
+
+  // Skip tiny controls/buttons — real REAPER windows are at least 50×50
+  { RECT wr; GetClientRect(hwnd, &wr);
+    if ((wr.right - wr.left) < 50 || (wr.bottom - wr.top) < 50) return TRUE; }
 
   // Skip windows inside our container
   if (data->skipContainer && (hwnd == data->skipContainer || IsChild(data->skipContainer, hwnd)))
@@ -347,7 +352,11 @@ bool WindowManager::DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd
   ShowWindow(targetHwnd, SW_SHOWNA);
   SetWindowPos(targetHwnd, nullptr, 0, 0, 0, 0,
                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-  InvalidateRect(targetHwnd, nullptr, TRUE);
+
+  // Force Cocoa layout + display pass.  SWELL's SetParent does NOT trigger
+  // setNeedsLayout: on the reparented NSView, so child controls (e.g.
+  // Routing Matrix grid) may have stale frames from before reparent.
+  ForceViewLayoutAndDisplay(targetHwnd);
 
   DBG("[ReDockIt] DoCapture: DONE hwnd=%p captured=true\n", (void*)targetHwnd);
   return true;
@@ -571,7 +580,24 @@ void WindowManager::RepositionAll(const SplitTree& tree)
       if (t == ps.activeTab) {
         SetWindowPos(tab.hwnd, HWND_TOP, x, y, w, h,
                      SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
-        InvalidateRect(tab.hwnd, nullptr, TRUE);
+        SendMessage(tab.hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(w, h));
+
+        // Propagate WM_SIZE to child controls — SWELL doesn't cascade
+        // layout changes to subviews after reparent (no setNeedsLayout).
+        // Windows like Routing Matrix have a child grid control that needs
+        // an explicit size message to lay out.
+        HWND child = GetWindow(tab.hwnd, GW_CHILD);
+        while (child) {
+          if (IsWindow(child)) {
+            RECT cr;
+            GetClientRect(child, &cr);
+            SendMessage(child, WM_SIZE, SIZE_RESTORED,
+                        MAKELPARAM(cr.right, cr.bottom));
+          }
+          child = GetWindow(child, GW_HWNDNEXT);
+        }
+        // Force Cocoa display pass on the view and all subviews
+        ForceViewLayoutAndDisplay(tab.hwnd);
       } else {
         ShowWindow(tab.hwnd, SW_HIDE);
       }

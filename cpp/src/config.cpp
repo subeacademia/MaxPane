@@ -30,7 +30,7 @@ const WindowDef KNOWN_WINDOWS[] = {
   {"Actions",           "Actions",               nullptr,          40605, 2},
   {"Mixer",             "Mixer",                 nullptr,          40078, 0},
   {"Region Manager",    "Region/Marker Manager", "Region",         40326, 1},
-  {"Routing Matrix",    "Routing Matrix",        "Matrix",         40251, 1},
+  {"Routing Matrix",    "Routing Matrix",        nullptr,          40251, 1},
   {"Track Manager",     "Track Manager",         nullptr,          40906, 2},
   {"Big Clock",         "Big Clock",             nullptr,          40378, 2},
   {"Navigator",         "Navigator",             nullptr,          40268, 2},

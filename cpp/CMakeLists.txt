@@ -55,5 +55,6 @@ if(APPLE)
   # It loads SWELL functions via [NSApp delegate] swellGetAPPAPIFunc
   target_sources(reaper_redockit PRIVATE
     ${WDL_DIR}/swell/swell-modstub.mm
+    src/swell_cocoa_helpers.mm
   )
 endif()

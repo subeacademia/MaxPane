@@ -246,6 +246,33 @@ void ReDockItContainer::LoadState()
 {
   if (!g_GetExtState) return;
 
+  // Clean up stale windows from a previous workspace switch.
+  // During workspace switching we don't toggle off unused windows (to preserve
+  // HWNDs and avoid rendering breakage).  Instead we record their action IDs
+  // and close them here at startup — REAPER has reopened them from wnd_vis,
+  // and this toggle properly updates wnd_vis so they stay closed.
+  if (g_SetExtState && g_Main_OnCommand) {
+    const char* staleStr = g_GetExtState(EXT_SECTION, "stale_toggle_actions");
+    if (staleStr && staleStr[0]) {
+      DBG("[ReDockIt] LoadState: cleaning stale actions: %s\n", staleStr);
+      const char* cur = staleStr;
+      while (*cur) {
+        int a = 0;
+        while (*cur >= '0' && *cur <= '9') { a = a * 10 + (*cur - '0'); cur++; }
+        if (a > 0) {
+          int state = g_GetToggleCommandState ? g_GetToggleCommandState(a) : -1;
+          if (state != 0) {
+            DBG("[ReDockIt] LoadState: closing stale action=%d (state=%d)\n", a, state);
+            g_Main_OnCommand(a, 0);
+          }
+        }
+        if (*cur == ',') cur++;
+        else break;
+      }
+      g_SetExtState(EXT_SECTION, "stale_toggle_actions", "", true);
+    }
+  }
+
   NodeSnapshot snap[MAX_TREE_NODES];
   int nodeCount = 0;
   PaneSnapshot panes[MAX_PANES];
@@ -404,12 +431,96 @@ void ReDockItContainer::LoadWorkspace(const char* name)
   const WorkspaceEntry* ws = m_wsMgr->Find(name);
   if (!ws) return;
 
-  m_winMgr.ReleaseAll(false);  // just reparent, don't toggle off
+  // --- Stale action tracking ---
+  // Build set of toggle-action IDs in the NEW workspace.
+  int newActions[MAX_PANES * MAX_TABS_PER_PANE];
+  int newActionCount = 0;
+  for (int p = 0; p < MAX_PANES; p++) {
+    for (int t = 0; t < ws->panes[p].tabCount; t++) {
+      if (ws->panes[p].tabs[t].toggleAction > 0 &&
+          newActionCount < MAX_PANES * MAX_TABS_PER_PANE) {
+        newActions[newActionCount++] = ws->panes[p].tabs[t].toggleAction;
+      }
+    }
+  }
+
+  // Read existing stale list from ext state (accumulated from prior switches).
+  int staleActions[256];
+  int staleCount = 0;
+  if (g_GetExtState) {
+    const char* s = g_GetExtState(EXT_SECTION, "stale_toggle_actions");
+    if (s && s[0]) {
+      const char* cur = s;
+      while (*cur && staleCount < 256) {
+        int a = 0;
+        while (*cur >= '0' && *cur <= '9') { a = a * 10 + (*cur - '0'); cur++; }
+        if (a > 0) staleActions[staleCount++] = a;
+        if (*cur == ',') cur++;
+        else break;
+      }
+    }
+  }
+
+  // Add currently captured windows NOT in the new workspace to stale list.
+  for (int i = 0; i < MAX_PANES; i++) {
+    const PaneState* ps = m_winMgr.GetPaneState(i);
+    if (!ps) continue;
+    for (int t = 0; t < ps->tabCount; t++) {
+      int act = ps->tabs[t].toggleAction;
+      if (act <= 0) continue;
+      bool inNew = false;
+      for (int n = 0; n < newActionCount; n++) {
+        if (newActions[n] == act) { inNew = true; break; }
+      }
+      if (inNew) continue;
+      bool already = false;
+      for (int s = 0; s < staleCount; s++) {
+        if (staleActions[s] == act) { already = true; break; }
+      }
+      if (!already && staleCount < 256) {
+        staleActions[staleCount++] = act;
+      }
+    }
+  }
+
+  // Remove from stale list any actions that are in the new workspace
+  // (they'll be recaptured — no longer stale).
+  {
+    int kept = 0;
+    for (int s = 0; s < staleCount; s++) {
+      bool inNew = false;
+      for (int n = 0; n < newActionCount; n++) {
+        if (newActions[n] == staleActions[s]) { inNew = true; break; }
+      }
+      if (!inNew) staleActions[kept++] = staleActions[s];
+    }
+    staleCount = kept;
+  }
+
+  // Persist updated stale list — will be cleaned up at next startup.
+  if (g_SetExtState) {
+    char buf[2048] = {};
+    int len = 0;
+    for (int s = 0; s < staleCount; s++) {
+      int n = snprintf(buf + len, sizeof(buf) - (size_t)len,
+                       "%s%d", len > 0 ? "," : "", staleActions[s]);
+      if (n > 0) len += n;
+    }
+    g_SetExtState(EXT_SECTION, "stale_toggle_actions", buf, true);
+    DBG("[ReDockIt] LoadWorkspace: stale list (%d actions): %s\n", staleCount, buf);
+  }
+
+  // --- Release and reload ---
+  // Release ALL without toggle — preserves every HWND.
+  // Shared windows keep the same handle, avoiding re-creation which breaks
+  // internal rendering for complex windows like Routing Matrix.
+  // Stale windows are NOT toggled off here — that happens at next startup
+  // (see LoadState) where REAPER's wnd_vis is properly updated.
+  m_winMgr.ReleaseAll(false);
 
   if (ws->treeVersion == 2) {
     m_tree.LoadSnapshot(ws->nodes, ws->nodeCount);
   } else {
-    // Legacy format
     int lp = ws->layoutPreset;
     if (lp < 0 || lp >= PRESET_COUNT) lp = 0;
     m_tree.BuildPreset((LayoutPreset)lp);
@@ -423,6 +534,7 @@ void ReDockItContainer::LoadWorkspace(const char* name)
 
   ApplyPaneState(ws->panes, MAX_PANES, false);
   m_winMgr.RepositionAll(m_tree);
+
   InvalidateRect(m_hwnd, nullptr, TRUE);
   SaveState();
 }
@@ -1428,7 +1540,6 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
         else if (self->m_captureQueue->HasPending()) {
           if (self->m_captureQueue->Tick(self->m_hwnd, self->m_winMgr)) {
             self->RefreshLayout();
-            // Grace period: reparenting may temporarily hide our docker
           }
           if (!self->m_captureQueue->HasPending()) {
             self->StopCaptureTimerIfIdle();
