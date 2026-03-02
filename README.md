@@ -19,6 +19,8 @@
 - **Favorites** — Pin frequently used windows for quick access across sessions.
 - **Tab colors** — Color-code tabs with 8 palette colors for visual organization.
 - **Layout presets** — Quick-start with 5 built-in layouts: Two Columns, Left + Right Split, Three Columns, 2x2 Grid, Top + Bottom Split.
+- **Hover highlights** — Visual feedback on splitter bars and tabs when hovered.
+- **Per-project state** — Layout is saved inside each .RPP project file, so different projects can have different ReDockIT configurations.
 - **Persistent state** — Layout, captured windows, favorites, and workspaces survive REAPER restarts.
 - **Auto-open on startup** — Optionally restore ReDockIT automatically when REAPER launches.
 - **Dockable** — The container itself docks into REAPER's native docker system.
@@ -131,7 +133,7 @@ make
 
 ## Requirements
 
-- **REAPER** 7.0+ (tested on 7.61)
+- **REAPER** 7.0+ (tested on 7.62)
 - **macOS** arm64 (Apple Silicon) or x86_64 — currently the primary platform
 - **Windows** and **Linux** support is planned (the codebase uses WDL/SWELL for cross-platform compatibility)
 
@@ -148,11 +150,13 @@ cpp/src/
   workspace_manager.h/cpp  State save/restore, named workspace snapshots
   context_menu.h/cpp    Context menu construction (pane + tab menus)
   config.h              Constants: colors, geometry, timing, window definitions
+  project_state.h/cpp   RPP chunk I/O (project_config_extension_t callbacks)
+  state_accessor.h      Polymorphic StateAccessor for global/project/RPP state
   globals.h/cpp         REAPER API function pointers, safe_strncpy, helpers
   debug.h               Conditional debug logging (Debug builds only)
 ```
 
-The extension works by reparenting REAPER windows (via `SetParent`) into a custom container dialog. The container uses a binary split tree for layout, with each leaf node representing a pane that holds tabbed windows. All state is persisted via REAPER's ExtState API.
+The extension works by reparenting REAPER windows (via `SetParent`) into a custom container dialog. The container uses a binary split tree for layout, with each leaf node representing a pane that holds tabbed windows. Global state is persisted via REAPER's ExtState API; per-project state is saved inside `.RPP` files via `project_config_extension_t`.
 
 ## Recording screenshots & GIFs
 
@@ -181,7 +185,7 @@ See [open issues](../../issues) for ideas.
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2025 b4s1c
+[MIT](LICENSE) — Copyright (c) 2025–2026 b4s1c
 
 ## Links
 

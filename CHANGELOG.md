@@ -4,6 +4,28 @@ All notable changes to ReDockIT will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-03-02
+
+### Added
+- Splitter hover highlights (white bar on mouseover)
+- Tab hover highlights (lighten effect on mouseover)
+- Per-project state persistence via RPP files (`project_config_extension_t`)
+- `StateAccessor` abstraction for polymorphic state I/O (global, project, RPP)
+
+### Fixed
+- Workspace switch rendering: blank/artifact windows (e.g. Routing Matrix) after switching back
+- Frameless floating windows when closing tabs via [x]
+- Windows reappearing floating after REAPER restart despite being closed
+- Shutdown lifecycle: proper toggle state check, reparent-before-toggle sequence
+- Quit interception via hookcommand for reliable state save on macOS/Windows
+- RepositionAll repaint: `SWP_FRAMECHANGED` + `InvalidateRect` after pane resize
+
+### Changed
+- Simplified to global docker model (removed per-project visibility switching)
+- RPP state I/O now uses synchronous `project_config_extension_t` (replaced deferred timer)
+- `LoadWorkspace` uses `ReleaseAll(false)` for smoother workspace transitions
+- `DoCapture` forces frame recalculation via `SWP_FRAMECHANGED`
+
 ## [1.0.1] - 2026-03-01
 
 ### Fixed
