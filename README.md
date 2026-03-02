@@ -12,7 +12,7 @@
 ## Features
 
 - **Flexible split layouts** — Split panes horizontally or vertically to any depth (up to 16 panes). Drag splitter bars to resize on the fly.
-- **Tabbed windows** — Multiple windows per pane, with tab bar. Click tabs to switch, drag tabs between panes.
+- **Tabbed windows** — Multiple windows per pane, with tab bar. Click tabs to switch, drag tabs between panes. Each tab bar has a **▼ menu button** for quick access to the pane context menu.
 - **14 known REAPER windows** — One-click capture for Media Explorer, FX Browser, Actions, Mixer, Region Manager, Routing Matrix, Track Manager, Big Clock, Navigator, Undo History, Project Bay, Video, Virtual MIDI Keyboard, Performance Meter.
 - **Arbitrary window capture** — Grab *any* open REAPER window, including third-party ReaImGui scripts (ReaMD, etc.), via the "Open Windows" submenu or click-to-capture mode.
 - **Workspaces** — Save and restore complete layout snapshots (tree structure + captured windows) with a single click.
@@ -72,7 +72,7 @@ See [Building](#building) below.
 ## Usage
 
 1. **Open ReDockIT** — Run the action "ReDockIt: Open Container" from REAPER's Actions menu.
-2. **Right-click** any empty pane header to open the context menu.
+2. **Right-click** any pane header, or click the **▼ button** at the right of any tab bar, to open the pane context menu.
 3. **Choose a window** from the Known Windows list, or browse Open Windows for any visible REAPER window.
 4. **Split panes** via the context menu (Split Left/Right or Split Top/Bottom).
 5. **Drag tabs** between panes to rearrange.
@@ -142,19 +142,23 @@ make
 
 ```
 cpp/src/
-  main.cpp              Entry point, API imports, action registration
-  container.h/cpp       Dockable window, DlgProc, UI painting, event handling
-  split_tree.h/cpp      Binary tree layout engine (split/merge/drag)
-  window_manager.h/cpp  Window capture via SetParent, tab management
-  capture_queue.h/cpp   Async window capture with retry + dock frame detection
-  favorites_manager.h/cpp  Persistent favorites with action command strings
-  workspace_manager.h/cpp  State save/restore, named workspace snapshots
-  context_menu.h/cpp    Context menu construction (pane + tab menus)
-  config.h              Constants: colors, geometry, timing, window definitions
-  project_state.h/cpp   RPP chunk I/O (project_config_extension_t callbacks)
-  state_accessor.h      Polymorphic StateAccessor for global/project/RPP state
-  globals.h/cpp         REAPER API function pointers, safe_strncpy, helpers
-  debug.h               Conditional debug logging (Debug builds only)
+  main.cpp                  Entry point, API imports, action registration
+  container.h               Container class declaration, shared structs (TabBarLayout, DragState, …)
+  container.cpp             Lifecycle, DlgProc, context menus, OnTimer, OnPaneMenuButtonClick
+  container_paint.cpp       OnPaint, DrawTabBar (rendering only)
+  container_input.cpp       Mouse events, tab hit-testing, drag-and-drop, CalcTabBarLayout, GetTabRect
+  container_state.cpp       SaveState, LoadState, ApplyPaneState, workspace save/load/delete
+  split_tree.h/cpp          Binary tree layout engine (split/merge/drag/recalculate)
+  window_manager.h/cpp      Window capture via SetParent, tab management (close/move/reposition)
+  capture_queue.h/cpp       Async window capture with retry + dock frame detection
+  favorites_manager.h/cpp   Persistent favorites with action command strings
+  workspace_manager.h/cpp   State save/restore, named workspace snapshots
+  context_menu.h/cpp        Context menu construction (pane + tab menus)
+  config.h                  Constants: colors, geometry, timing, window definitions
+  project_state.h/cpp       RPP chunk I/O (project_config_extension_t callbacks)
+  state_accessor.h          Polymorphic StateAccessor for global/project/RPP state
+  globals.h/cpp             REAPER API function pointers, safe_strncpy, helpers
+  debug.h                   Conditional debug logging (Debug builds only)
 ```
 
 The extension works by reparenting REAPER windows (via `SetParent`) into a custom container dialog. The container uses a binary split tree for layout, with each leaf node representing a pane that holds tabbed windows. Global state is persisted via REAPER's ExtState API; per-project state is saved inside `.RPP` files via `project_config_extension_t`.

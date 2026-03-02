@@ -12,9 +12,10 @@
 #include <cstring>
 #include <cstdlib>
 
-// Expand dirty rect to include src (in-place union, handles empty dst)
+// Expand dirty rect to include src (in-place union, handles empty dst/src)
 static void ExpandRect(RECT& dst, const RECT& src)
 {
+  if (src.right <= src.left || src.bottom <= src.top) return;
   if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
   if (src.left   < dst.left)   dst.left   = src.left;
   if (src.top    < dst.top)    dst.top    = src.top;

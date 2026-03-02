@@ -4,6 +4,33 @@ All notable changes to ReDockIT will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-03-02
+
+### Added
+- **Pane menu button (▼)** — 16 px button at the right edge of every tab bar. Left-click opens the pane context menu (same as right-click). Hit-test returns `-2`; hover highlights the button.
+- `CalcTabBarLayout` shared helper — single source of truth for tab geometry used by `DrawTabBar`, `TabHitTest`, and `IsOnTabCloseButton`.
+- `GetTabRect` helper — returns the screen rect for a given tab index; used for targeted invalidation on color change.
+- `ExpandRect` static helper (both `container.cpp` and `container_input.cpp`) — in-place RECT union, skips empty src/dst to prevent dirty-rect corruption.
+
+### Changed
+- **Targeted `InvalidateRect`** — hover/drag operations now invalidate only the affected rect instead of the full window:
+  - Splitter hover: union of old + new splitter rect
+  - Tab/menu-button hover: union of old + new item rect via `GetTabRect` / inline button rect
+  - Drag highlight change: union of old + new highlight pane rect
+  - Drag cancel/end: source tab bar + old highlight pane rect
+  - Tab color change: only that tab's rect via `GetTabRect`
+  - Timer hover timeout: cached old hover rects only
+- Tab area now reserves `PANE_MENU_BTN_WIDTH` (16 px) on the right for the menu button; tabs shrink accordingly.
+
+### Fixed
+- **`TabHitTest` x-bounds regression** — the menu-button check (`x >= paneRect.right - 16`) was firing for clicks *outside* the pane's x range (e.g. in the adjacent right-side pane), causing the pane context menu to appear instead of tab interactions. Fix: check `x < paneRect.left || x >= paneRect.right` before the menu-button test.
+- `ExpandRect` now guards against empty `src` rect (`{0,0,0,0}`) in both call-sites, preventing the dirty rect from expanding into origin unnecessarily.
+
+### Removed
+- Scroll arrows (`<` / `>`) for tab overflow — tabs shrink when a pane is narrow (original behaviour). `m_tabScrollOffset`, `TAB_SCROLL_ARROW_WIDTH`, `TAB_OVERFLOW_THRESHOLD` removed.
+
+---
+
 ## [1.1.0] - 2026-03-02
 
 ### Added

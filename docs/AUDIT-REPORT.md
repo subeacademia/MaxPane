@@ -607,8 +607,8 @@ Logika dock-frame detection jest **funkcjonalnie poprawna** i pokrywa znane scen
 | ID | Status | Decyzja |
 |----|--------|---------|
 | 4.1 GDI brush cache | ZREALIZOWANE | Wdrożone w ramach audytu (commit 11) |
-| 4.2 Targeted InvalidateRect | OTWARTE | Profile-first — wymaga benchmarku przed optymalizacją |
-| 4.3 Tab overflow UI | OTWARTE | Feature request — zaplanować jako osobna feature |
+| 4.2 Targeted InvalidateRect | ZREALIZOWANE | Wdrożone w v1.2.0: hover splitter/tab, drag highlight/cancel, tab color, timer — targeted dirty rect |
+| 4.3 Tab overflow UI | CZĘŚCIOWO | Menu button ▼ (v1.2.0) umożliwia dostęp do menu pane. Scroll arrows zrezygnowano — taby ściskają się przy wąskim pane. |
 | 4.4 NOMINMAX | ZREALIZOWANE | Wdrożone w ramach audytu (commit 10) |
 | 4.5 Container.cpp split | ZREALIZOWANE | Rozbite na 4 pliki: container, _paint, _input, _state |
 | 4.7 SaveState debounce | ODROCZONE | Re-weryfikacja wykazała brak problemu (event-driven, in-memory) |
@@ -625,3 +625,4 @@ Logika dock-frame detection jest **funkcjonalnie poprawna** i pokrywa znane scen
 | v1 | 2026-03-02 | Pierwotny raport: 27 znalezisk + 2 FP |
 | v2 | 2026-03-02 | Re-weryfikacja każdego znaleziska w kodzie. Usunięte: HWND_TOP (→ FP). Przeniesione: SaveState debounce (WAŻNY → NICE). Dodane: RecalcNode cycle protection. Wzbogacone: 2.5, 2.14. |
 | **v3 (rev.3)** | 2026-03-02 | Korekty po review Codex: C1 reklasyfikacja z FP na niskie ryzyko portability (Win64). Dodana sekcja 8 (ReaImGui dock-frame risk matrix). Sekcja 6 przeformułowana: „brak memory corruption/leak, ale luki robustności inputu" (spójność z 2.14/2.15). |
+| **v4** | 2026-03-02 | Aktualizacja backlogu po wdrożeniu v1.2.0: 4.2 Targeted InvalidateRect → ZREALIZOWANE; 4.3 Tab overflow → CZĘŚCIOWO (menu button ▼ dodany, scroll arrows zrezygnowano). Nowe bugfix: TabHitTest x-bounds check (kontekstowe menu zamiast interakcji z tabami sąsiedniego pane — regresja Feature A naprawiona). ExpandRect: synchronizacja logiki empty-src między container.cpp i container_input.cpp. |
