@@ -134,8 +134,9 @@ make
 ## Requirements
 
 - **REAPER** 7.0+ (tested on 7.62)
-- **macOS** arm64 (Apple Silicon) or x86_64 — currently the primary platform
-- **Windows** and **Linux** support is planned (the codebase uses WDL/SWELL for cross-platform compatibility)
+- **macOS** arm64 (Apple Silicon) or x86_64 — primary platform
+- **Windows** x64 — builds provided, testing in progress
+- **Linux** x86_64 — builds provided, testing in progress
 
 ## Architecture
 
