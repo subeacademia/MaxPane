@@ -10,6 +10,9 @@
 #endif
 
 #include <cstring>
+#include <cstdlib>
+#include <climits>
+#include <cstdio>
 
 // Global REAPER API function pointers (defined in globals.cpp)
 extern void (*g_DockWindowAddEx)(HWND hwnd, const char* name, const char* identstr, bool allowShow);
@@ -42,6 +45,30 @@ inline void safe_strncpy(char* dst, const char* src, size_t dst_size)
   dst[dst_size - 1] = '\0';
 }
 
+// Safe integer parsing with clamping (replaces raw atoi)
+inline int safe_atoi_clamped(const char* s, int minVal, int maxVal)
+{
+  if (!s || !s[0]) return minVal;
+  char* endptr = nullptr;
+  long v = strtol(s, &endptr, 10);
+  if (endptr == s) return minVal;  // no digits parsed
+  if (v < (long)minVal) return minVal;
+  if (v > (long)maxVal) return maxVal;
+  return (int)v;
+}
+
+// Safe float parsing with clamping (replaces raw atof)
+inline float safe_atof_clamped(const char* s, float minVal, float maxVal)
+{
+  if (!s || !s[0]) return minVal;
+  char* endptr = nullptr;
+  double v = strtod(s, &endptr);
+  if (endptr == s) return minVal;  // no digits parsed
+  if (v < (double)minVal) return minVal;
+  if (v > (double)maxVal) return maxVal;
+  return (float)v;
+}
+
 // Resolve action command string to numeric ID (handles both "_RSxxx" and "12345")
 inline int ResolveActionCommand(const char* cmd)
 {
@@ -49,7 +76,10 @@ inline int ResolveActionCommand(const char* cmd)
   if (cmd[0] == '_' && g_NamedCommandLookup) {
     return g_NamedCommandLookup(cmd);
   }
-  return atoi(cmd);
+  char* endptr = nullptr;
+  long v = strtol(cmd, &endptr, 10);
+  if (endptr == cmd || v <= 0 || v > INT_MAX) return 0;
+  return (int)v;
 }
 
 // Get stable command string for an action ID (returns named ID for custom actions, numeric string for built-in)

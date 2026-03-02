@@ -24,9 +24,7 @@ void FavoritesManager::Load()
       EXT_SECTION, countStr ? countStr : "(null)");
   if (!countStr || !countStr[0]) return;
 
-  int count = atoi(countStr);
-  if (count < 0) count = 0;
-  if (count > MAX_FAVORITES) count = MAX_FAVORITES;
+  int count = safe_atoi_clamped(countStr, 0, MAX_FAVORITES);
 
   char key[128];
   for (int i = 0; i < count; i++) {
@@ -59,7 +57,7 @@ void FavoritesManager::Load()
       // Legacy: try old numeric-only key
       snprintf(key, sizeof(key), "fav_%d_action", i);
       const char* actionStr = g_GetExtState(EXT_SECTION, key);
-      fav.toggleAction = (actionStr && actionStr[0]) ? atoi(actionStr) : 0;
+      fav.toggleAction = safe_atoi_clamped(actionStr, 0, INT_MAX);
       if (fav.toggleAction > 0) {
         snprintf(fav.actionCommand, sizeof(fav.actionCommand), "%d", fav.toggleAction);
       }

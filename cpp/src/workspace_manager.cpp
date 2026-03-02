@@ -101,40 +101,38 @@ int WorkspaceManager::ReadTreeNodesStatic(const char* prefix, NodeSnapshot* snap
   char key[128];
   snprintf(key, sizeof(key), "%stree_node_count", prefix);
   const char* ncStr = state.Get(EXT_SECTION, key);
-  int count = ncStr ? atoi(ncStr) : 0;
-  if (count < 0) count = 0;
-  if (count > MAX_TREE_NODES) count = MAX_TREE_NODES;
+  int count = safe_atoi_clamped(ncStr, 0, MAX_TREE_NODES);
 
   for (int i = 0; i < count; i++) {
     const char* val;
 
     snprintf(key, sizeof(key), "%stn_%d_type", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].type = val ? (SplitNodeType)atoi(val) : NODE_EMPTY;
+    snap[i].type = (SplitNodeType)safe_atoi_clamped(val, 0, 2);
 
     snprintf(key, sizeof(key), "%stn_%d_orient", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].orient = val ? (SplitterOrientation)atoi(val) : SPLIT_VERTICAL;
+    snap[i].orient = (SplitterOrientation)safe_atoi_clamped(val, 0, 1);
 
     snprintf(key, sizeof(key), "%stn_%d_ratio", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].ratio = val ? (float)atof(val) : 0.5f;
+    snap[i].ratio = safe_atof_clamped(val, 0.05f, 0.95f);
 
     snprintf(key, sizeof(key), "%stn_%d_childA", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].childA = val ? atoi(val) : -1;
+    snap[i].childA = safe_atoi_clamped(val, -1, MAX_TREE_NODES - 1);
 
     snprintf(key, sizeof(key), "%stn_%d_childB", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].childB = val ? atoi(val) : -1;
+    snap[i].childB = safe_atoi_clamped(val, -1, MAX_TREE_NODES - 1);
 
     snprintf(key, sizeof(key), "%stn_%d_paneId", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].paneId = val ? atoi(val) : -1;
+    snap[i].paneId = safe_atoi_clamped(val, -1, MAX_PANES - 1);
 
     snprintf(key, sizeof(key), "%stn_%d_parent", prefix, i);
     val = state.Get(EXT_SECTION, key);
-    snap[i].parent = val ? atoi(val) : -1;
+    snap[i].parent = safe_atoi_clamped(val, -1, MAX_TREE_NODES - 1);
   }
 
   return count;
@@ -232,11 +230,11 @@ void WorkspaceManager::ReadPaneTabsStatic(const char* prefix, PaneSnapshot* pane
   for (int p = 0; p < maxPanes && p < MAX_PANES; p++) {
     snprintf(key, sizeof(key), "%spane_%d_tab_count", prefix, p);
     const char* val = state.Get(EXT_SECTION, key);
-    panes[p].tabCount = val ? atoi(val) : 0;
+    panes[p].tabCount = safe_atoi_clamped(val, 0, MAX_TABS_PER_PANE);
 
     snprintf(key, sizeof(key), "%spane_%d_active_tab", prefix, p);
     val = state.Get(EXT_SECTION, key);
-    panes[p].activeTab = val ? atoi(val) : 0;
+    panes[p].activeTab = safe_atoi_clamped(val, 0, MAX_TABS_PER_PANE - 1);
 
     for (int t = 0; t < panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
       snprintf(key, sizeof(key), "%spane_%d_tab_%d", prefix, p, t);
@@ -290,7 +288,7 @@ void WorkspaceManager::ReadPaneTabsStatic(const char* prefix, PaneSnapshot* pane
       // Read tab color
       snprintf(key, sizeof(key), "%spane_%d_tab_%d_color", prefix, p, t);
       val = state.Get(EXT_SECTION, key);
-      panes[p].tabs[t].colorIndex = val ? atoi(val) : 0;
+      panes[p].tabs[t].colorIndex = safe_atoi_clamped(val, 0, TAB_COLOR_COUNT - 1);
     }
   }
 }
@@ -547,9 +545,7 @@ void WorkspaceManager::LoadList()
   const char* countStr = globalState.Get(EXT_SECTION, "ws_count");
   if (!countStr) return;
 
-  int count = atoi(countStr);
-  if (count < 0) count = 0;
-  if (count > MAX_WORKSPACES) count = MAX_WORKSPACES;
+  int count = safe_atoi_clamped(countStr, 0, MAX_WORKSPACES);
 
   char key[128];
 
@@ -566,7 +562,7 @@ void WorkspaceManager::LoadList()
     // Check if workspace uses tree format
     snprintf(key, sizeof(key), "ws_%d_tree_version", w);
     const char* tvStr = globalState.Get(EXT_SECTION, key);
-    ws.treeVersion = tvStr ? atoi(tvStr) : 0;
+    ws.treeVersion = safe_atoi_clamped(tvStr, 0, 2);
 
     if (ws.treeVersion == 2) {
       // Load tree snapshot using shared helper
@@ -577,17 +573,17 @@ void WorkspaceManager::LoadList()
       // Legacy format
       snprintf(key, sizeof(key), "ws_%d_preset", w);
       const char* val = globalState.Get(EXT_SECTION, key);
-      ws.layoutPreset = val ? atoi(val) : 0;
+      ws.layoutPreset = safe_atoi_clamped(val, 0, PRESET_COUNT - 1);
 
       for (int r = 0; r < MAX_SPLITTERS; r++) {
         snprintf(key, sizeof(key), "ws_%d_ratio_%d", w, r);
         val = globalState.Get(EXT_SECTION, key);
-        ws.ratios[r] = val ? (float)atof(val) : 0.5f;
+        ws.ratios[r] = safe_atof_clamped(val, 0.05f, 0.95f);
       }
 
       snprintf(key, sizeof(key), "ws_%d_pane_count", w);
       val = globalState.Get(EXT_SECTION, key);
-      ws.paneCount = val ? atoi(val) : 0;
+      ws.paneCount = safe_atoi_clamped(val, 0, MAX_PANES);
     }
 
     // Load pane tab data using shared helper
