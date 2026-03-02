@@ -15,7 +15,6 @@
 #define REAPERAPI_WANT_DockWindowAddEx
 #define REAPERAPI_WANT_DockWindowRemove
 #define REAPERAPI_WANT_DockWindowRefresh
-#define REAPERAPI_WANT_ShowConsoleMsg
 #define REAPERAPI_WANT_Main_OnCommand
 #define REAPERAPI_WANT_GetExtState
 #define REAPERAPI_WANT_SetExtState
@@ -193,7 +192,6 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
 
   g_DockWindowAddEx = DockWindowAddEx;
   g_DockWindowRemove = DockWindowRemove;
-  g_ShowConsoleMsg = ShowConsoleMsg;
   g_Main_OnCommand = Main_OnCommand;
   g_GetExtState = GetExtState;
   g_SetExtState = SetExtState;

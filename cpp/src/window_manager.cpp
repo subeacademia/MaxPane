@@ -321,8 +321,6 @@ bool WindowManager::DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd
   if (!targetHwnd || !containerHwnd) return false;
 
   tab.originalParent = GetParent(targetHwnd);
-  tab.originalStyle = GetWindowLong(targetHwnd, GWL_STYLE);
-  tab.originalExStyle = GetWindowLong(targetHwnd, GWL_EXSTYLE);
 
   char targetTitle[256] = {};
   GetWindowText(targetHwnd, targetTitle, sizeof(targetTitle));
@@ -581,7 +579,7 @@ void WindowManager::RepositionAll(const SplitTree& tree)
   }
 }
 
-void WindowManager::CheckAlive(HWND containerHwnd)
+void WindowManager::CheckAlive()
 {
   for (int i = 0; i < MAX_PANES; i++) {
     PaneState& ps = m_panes[i];

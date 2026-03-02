@@ -31,7 +31,6 @@ ReDockItContainer::ReDockItContainer()
   , m_hoverSplitter(-1)
   , m_hoverPane(-1)
   , m_hoverTab(-1)
-  , m_shutdownGraceTicks(0)
   , m_pendingRppLoad(false)
 {
   m_captureMode.active = false;
@@ -842,7 +841,7 @@ void ReDockItContainer::OnTimer()
     g_pendingProjectState.valid = false;  // consumed
   }
 
-  m_winMgr.CheckAlive(m_hwnd);
+  m_winMgr.CheckAlive();
 }
 
 // =========================================================================
@@ -1413,7 +1412,6 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
           if (self->m_captureQueue->Tick(self->m_hwnd, self->m_winMgr)) {
             self->RefreshLayout();
             // Grace period: reparenting may temporarily hide our docker
-            self->m_shutdownGraceTicks = SHUTDOWN_GRACE_TICKS;
           }
           if (!self->m_captureQueue->HasPending()) {
             self->StopCaptureTimerIfIdle();

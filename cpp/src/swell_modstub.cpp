@@ -1,3 +1,4 @@
+// Legacy — kept for potential Linux build. Not used on macOS (see CMakeLists.txt).
 // Custom SWELL modstub wrapper for modern C++ toolchains.
 // The original swell-modstub-generic.cpp wraps swell.h inside extern "C",
 // which breaks with modern libc++ headers that use C++ templates in <cstddef>.

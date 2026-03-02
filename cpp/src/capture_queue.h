@@ -14,7 +14,6 @@ struct PendingCapture {
   int tickCount = 0;
   int retryCount = 0;
   int maxRetries = 30;
-  int colorIndex = 0;
   char actionCommand[128] = {};  // stable command string for re-resolve after restart
   bool actionDeferred = false;   // true = Main_OnCommand not yet called (deferred from LoadState)
 };
@@ -26,7 +25,6 @@ public:
   static const int RETRY_INTERVAL = 4;       // 200ms
   static const int MAX_RETRIES = 30;          // ~1.5s for known windows with toggle
   static const int MAX_RETRIES_ARBITRARY = 200; // ~10s for arbitrary (user may reopen manually)
-  static const int MAX_RETRIES_STARTUP = 600;   // ~30s for startup restore
 
   CaptureQueue();
 

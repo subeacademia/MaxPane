@@ -66,7 +66,6 @@ private:
   int m_hoverSplitter;      // branch index of splitter under mouse, -1 when none
   int m_hoverPane;          // pane id of tab under mouse, -1 when none
   int m_hoverTab;           // tab index under mouse, -1 when none
-  int m_shutdownGraceTicks;  // countdown after capture completes before allowing shutdown
   bool m_pendingRppLoad;     // true if waiting for RPP state to become available
 
   void ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions);

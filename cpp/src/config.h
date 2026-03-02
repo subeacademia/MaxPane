@@ -138,5 +138,4 @@ static const int TAB_TEXT_RIGHT_MARGIN  = 16;
 // Timing constants
 // =========================================================================
 
-static const int SHUTDOWN_GRACE_TICKS   = 10;    // ~5s at 500ms timer
 static const int STARTUP_DELAY_TICKS    = 15;    // ~450ms at 30ms timer

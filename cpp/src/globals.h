@@ -14,7 +14,6 @@
 // Global REAPER API function pointers (defined in globals.cpp)
 extern void (*g_DockWindowAddEx)(HWND hwnd, const char* name, const char* identstr, bool allowShow);
 extern void (*g_DockWindowRemove)(HWND);
-extern void (*g_ShowConsoleMsg)(const char*);
 extern void (*g_Main_OnCommand)(int, int);
 extern const char* (*g_GetExtState)(const char*, const char*);
 extern void (*g_SetExtState)(const char*, const char*, const char*, bool);

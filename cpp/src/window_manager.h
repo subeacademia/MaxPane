@@ -8,8 +8,6 @@ struct TabEntry {
   int toggleAction;
   HWND hwnd;
   HWND originalParent;
-  LONG_PTR originalStyle;
-  LONG_PTR originalExStyle;
   bool captured;
   bool isArbitrary;
   int colorIndex;  // 0 = default (no color), 1-8 = palette color
@@ -44,7 +42,7 @@ public:
   void ReleaseWindow(int paneId, bool toggleOff = true);
   void ReleaseAll(bool toggleOff = true);
   void RepositionAll(const SplitTree& tree);
-  void CheckAlive(HWND containerHwnd);
+  void CheckAlive();
 
   // Accessors
   const PaneState* GetPaneState(int paneId) const;
