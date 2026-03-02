@@ -12,6 +12,16 @@
 #include <cstring>
 #include <cstdlib>
 
+// Expand dirty rect to include src (in-place union, handles empty dst)
+static void ExpandRect(RECT& dst, const RECT& src)
+{
+  if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
+  if (src.left   < dst.left)   dst.left   = src.left;
+  if (src.top    < dst.top)    dst.top    = src.top;
+  if (src.right  > dst.right)  dst.right  = src.right;
+  if (src.bottom > dst.bottom) dst.bottom = src.bottom;
+}
+
 // =========================================================================
 // Constructor / lifecycle
 // =========================================================================
@@ -368,7 +378,10 @@ void ReDockItContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
   } else if (cmd >= MenuIds::TAB_COLOR_BASE && cmd < MenuIds::TAB_COLOR_BASE + TAB_COLOR_COUNT) {
     int newColor = cmd - MenuIds::TAB_COLOR_BASE;
     m_winMgr.SetTabColor(paneId, tabIdx, newColor);
-    InvalidateRect(m_hwnd, nullptr, TRUE);
+    // Targeted: only invalidate the changed tab's rect
+    RECT tr = GetTabRect(paneId, tabIdx);
+    if (tr.right > tr.left) InvalidateRect(m_hwnd, &tr, TRUE);
+    else InvalidateRect(m_hwnd, nullptr, TRUE);
     SaveState();
   } else if (cmd == MenuIds::FAV_ADD) {
     const TabEntry* tab = m_winMgr.GetTab(paneId, tabIdx);
@@ -844,11 +857,31 @@ INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, 
         RECT rc;
         GetClientRect(hwnd, &rc);
         if (pt.x < rc.left || pt.x >= rc.right || pt.y < rc.top || pt.y >= rc.bottom) {
+          // Cache hover positions before clearing — for targeted invalidation
+          int oldSplitter = self->m_hoverSplitter;
+          int oldPane     = self->m_hoverPane;
+          int oldTab      = self->m_hoverTab;
           self->m_hoverSplitter = -1;
           self->m_hoverPane = -1;
           self->m_hoverTab = -1;
           KillTimer(hwnd, TIMER_ID_HOVER);
-          InvalidateRect(hwnd, nullptr, TRUE);
+
+          RECT dirty = {};
+          // Splitter hover
+          if (oldSplitter >= 0)
+            ExpandRect(dirty, self->m_tree.GetNode(oldSplitter).splitterRect);
+          // Tab or menu button hover
+          if (oldPane >= 0 && oldTab >= 0)
+            ExpandRect(dirty, self->GetTabRect(oldPane, oldTab));
+          else if (oldPane >= 0 && oldTab == -2) {
+            const RECT& pr = self->m_tree.GetPaneRect(oldPane);
+            RECT btnR = { pr.right - PANE_MENU_BTN_WIDTH, pr.top,
+                          pr.right, pr.top + TAB_BAR_HEIGHT };
+            ExpandRect(dirty, btnR);
+          }
+
+          if (dirty.right > dirty.left) InvalidateRect(hwnd, &dirty, TRUE);
+          else InvalidateRect(hwnd, nullptr, TRUE);
         }
       }
       else if (self && wParam == TIMER_ID_CAPTURE) {

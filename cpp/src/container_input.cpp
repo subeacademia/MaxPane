@@ -168,6 +168,16 @@ void ReDockItContainer::StartTabDrag(int paneId, int tabIndex, int x, int y)
   SetCapture(m_hwnd);
 }
 
+// Expand dirty rect to include src (in-place union, handles empty dst)
+static void ExpandRect(RECT& dst, const RECT& src)
+{
+  if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
+  if (src.left   < dst.left)   dst.left   = src.left;
+  if (src.top    < dst.top)    dst.top    = src.top;
+  if (src.right  > dst.right)  dst.right  = src.right;
+  if (src.bottom > dst.bottom) dst.bottom = src.bottom;
+}
+
 void ReDockItContainer::UpdateTabDrag(int x, int y)
 {
   if (!m_dragState.dragStarted) {
@@ -194,7 +204,14 @@ void ReDockItContainer::UpdateTabDrag(int x, int y)
   }
 
   if (m_dragState.highlightPaneId != oldHighlight) {
-    InvalidateRect(m_hwnd, nullptr, TRUE);
+    // Targeted: union of old and new highlight pane rects
+    RECT dirty = {};
+    if (oldHighlight >= 0 && m_tree.IsPaneIdUsed(oldHighlight))
+      ExpandRect(dirty, m_tree.GetPaneRect(oldHighlight));
+    if (m_dragState.highlightPaneId >= 0 && m_tree.IsPaneIdUsed(m_dragState.highlightPaneId))
+      ExpandRect(dirty, m_tree.GetPaneRect(m_dragState.highlightPaneId));
+    if (dirty.right > dirty.left) InvalidateRect(m_hwnd, &dirty, TRUE);
+    else InvalidateRect(m_hwnd, nullptr, TRUE);
   }
 
   short escState = GetAsyncKeyState(VK_ESCAPE);
@@ -213,12 +230,21 @@ void ReDockItContainer::EndTabDrag(int x, int y)
     return;
   }
 
+  // Save positions before clearing state (for targeted invalidation)
+  int savedSrc = m_dragState.sourcePaneId;
+  int savedHL  = m_dragState.highlightPaneId;
+
   int targetPane = PaneAtPoint(x, y);
-  if (targetPane >= 0 && targetPane != m_dragState.sourcePaneId) {
+  if (targetPane >= 0 && targetPane != savedSrc) {
     if (m_winMgr.GetTabCount(targetPane) < MAX_TABS_PER_PANE) {
-      m_winMgr.MoveTab(m_dragState.sourcePaneId, m_dragState.sourceTabIndex, targetPane);
-      RefreshLayout();
+      m_winMgr.MoveTab(savedSrc, m_dragState.sourceTabIndex, targetPane);
+      memset(&m_dragState, 0, sizeof(m_dragState));
+      m_dragState.sourcePaneId = -1;
+      m_dragState.highlightPaneId = -1;
+      ReleaseCapture();
+      RefreshLayout();  // full invalidate inside
       SaveState();
+      return;
     }
   }
 
@@ -226,16 +252,40 @@ void ReDockItContainer::EndTabDrag(int x, int y)
   m_dragState.sourcePaneId = -1;
   m_dragState.highlightPaneId = -1;
   ReleaseCapture();
-  InvalidateRect(m_hwnd, nullptr, TRUE);
+
+  // Targeted: source pane tab bar + old highlight pane
+  RECT dirty = {};
+  if (savedSrc >= 0 && m_tree.IsPaneIdUsed(savedSrc)) {
+    const RECT& pr = m_tree.GetPaneRect(savedSrc);
+    RECT tabBar = { pr.left, pr.top, pr.right, pr.top + TAB_BAR_HEIGHT };
+    ExpandRect(dirty, tabBar);
+  }
+  if (savedHL >= 0 && m_tree.IsPaneIdUsed(savedHL))
+    ExpandRect(dirty, m_tree.GetPaneRect(savedHL));
+  if (dirty.right > dirty.left) InvalidateRect(m_hwnd, &dirty, TRUE);
+  else InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
 void ReDockItContainer::CancelTabDrag()
 {
+  int savedSrc = m_dragState.sourcePaneId;
+  int savedHL  = m_dragState.highlightPaneId;
   memset(&m_dragState, 0, sizeof(m_dragState));
   m_dragState.sourcePaneId = -1;
   m_dragState.highlightPaneId = -1;
   ReleaseCapture();
-  InvalidateRect(m_hwnd, nullptr, TRUE);
+
+  // Targeted: source pane tab bar + old highlight pane
+  RECT dirty = {};
+  if (savedSrc >= 0 && m_tree.IsPaneIdUsed(savedSrc)) {
+    const RECT& pr = m_tree.GetPaneRect(savedSrc);
+    RECT tabBar = { pr.left, pr.top, pr.right, pr.top + TAB_BAR_HEIGHT };
+    ExpandRect(dirty, tabBar);
+  }
+  if (savedHL >= 0 && m_tree.IsPaneIdUsed(savedHL))
+    ExpandRect(dirty, m_tree.GetPaneRect(savedHL));
+  if (dirty.right > dirty.left) InvalidateRect(m_hwnd, &dirty, TRUE);
+  else InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
 // =========================================================================
@@ -246,7 +296,6 @@ void ReDockItContainer::OnSize(int cx, int cy)
 {
   m_tree.Recalculate(cx, cy);
   m_winMgr.RepositionAll(m_tree);
-  // TODO(4.2): targeted InvalidateRect — compute dirty rect instead of full invalidate
   InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
@@ -262,23 +311,25 @@ void ReDockItContainer::OnMouseMove(int x, int y)
     GetClientRect(m_hwnd, &rc);
     m_tree.Drag(x, y, rc.right - rc.left, rc.bottom - rc.top);
     m_winMgr.RepositionAll(m_tree);
-    // TODO(4.2): targeted InvalidateRect — compute dirty rect instead of full invalidate
     InvalidateRect(m_hwnd, nullptr, TRUE);
     return;
   }
 
-  // Hover highlight for splitters
+  // Hover highlight for splitters — targeted dirty rect
   int hover = m_tree.HitTestSplitter(x, y);
   if (hover != m_hoverSplitter) {
+    RECT dirty = {};
+    if (m_hoverSplitter >= 0) ExpandRect(dirty, m_tree.GetNode(m_hoverSplitter).splitterRect);
     m_hoverSplitter = hover;
-    InvalidateRect(m_hwnd, nullptr, TRUE);
+    if (hover >= 0) ExpandRect(dirty, m_tree.GetNode(hover).splitterRect);
+    if (dirty.right > dirty.left) InvalidateRect(m_hwnd, &dirty, TRUE);
     if (hover >= 0)
       SetTimer(m_hwnd, TIMER_ID_HOVER, 60, nullptr);
     else
       KillTimer(m_hwnd, TIMER_ID_HOVER);
   }
 
-  // Hover highlight for tabs and menu button
+  // Hover highlight for tabs and menu button — targeted dirty rect
   int hPane = -1, hTab = -1;
   for (int i = 0; i < m_tree.GetLeafCount(); i++) {
     int paneId = m_tree.GetPaneId(m_tree.GetLeafList()[i]);
@@ -287,9 +338,31 @@ void ReDockItContainer::OnMouseMove(int x, int y)
     if (t != -1) { hPane = paneId; hTab = t; break; }
   }
   if (hPane != m_hoverPane || hTab != m_hoverTab) {
+    // Compute visual dirty rect for items that actually paint differently on hover
+    // (tabs >= 0 and menu button == -2; scroll arrows -3/-4 have no hover paint)
+    auto HoverItemRect = [&](int pane, int tab) -> RECT {
+      RECT empty = {};
+      if (pane < 0 || tab == -1) return empty;
+      if (tab >= 0) return GetTabRect(pane, tab);
+      if (tab == -2) {
+        // Menu button rect
+        const RECT& pr = m_tree.GetPaneRect(pane);
+        RECT r = { pr.right - PANE_MENU_BTN_WIDTH, pr.top,
+                   pr.right, pr.top + TAB_BAR_HEIGHT };
+        return r;
+      }
+      return empty;
+    };
+
+    RECT dirty = {};
+    ExpandRect(dirty, HoverItemRect(m_hoverPane, m_hoverTab));
+    ExpandRect(dirty, HoverItemRect(hPane, hTab));
+
     m_hoverPane = hPane;
     m_hoverTab = hTab;
-    InvalidateRect(m_hwnd, nullptr, TRUE);
+
+    if (dirty.right > dirty.left) InvalidateRect(m_hwnd, &dirty, TRUE);
+
     if (hTab != -1 && m_hoverSplitter < 0)
       SetTimer(m_hwnd, TIMER_ID_HOVER, 60, nullptr);
     else if (hTab == -1 && m_hoverSplitter < 0)
