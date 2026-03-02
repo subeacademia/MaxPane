@@ -136,6 +136,7 @@ void ReDockItContainer::Hide()
 void ReDockItContainer::Toggle()
 {
   if (!m_hwnd) { Create(); return; }
+  DBG("[ReDockIt] Toggle: m_visible=%d winVisible=%d\n", m_visible, IsWindowVisible(m_hwnd));
   if (m_visible) {
     // User explicitly closing — mark as not visible for next startup
     if (g_SetExtState) {
@@ -842,15 +843,39 @@ void ReDockItContainer::OnTimer()
     }
   }
 
+  // Detect docker hide (REAPER [x] doesn't call hookcommand).
+  // On macOS/SWELL, IsWindowVisible only checks WS_VISIBLE flag — it doesn't
+  // reflect actual on-screen visibility. Check GetWindowRect size instead:
+  // a hidden docker panel has 0-size client area.
+  if (m_hwnd && m_visible) {
+    RECT rc;
+    GetClientRect(m_hwnd, &rc);
+    int w = rc.right - rc.left;
+    int h = rc.bottom - rc.top;
+    if (w <= 1 || h <= 1) {
+      DBG("[ReDockIt] OnTimer: docker hidden (clientRect=%dx%d), marking hidden\n", w, h);
+      SaveState();
+      m_captureQueue->CancelAll();
+      m_winMgr.ReleaseAll();
+      m_visible = false;
+    }
+  }
+
   // Only check alive / reposition if visible
-  if (m_hwnd && IsWindowVisible(m_hwnd)) {
+  if (m_hwnd && m_visible) {
     m_winMgr.CheckAlive(m_hwnd);
   }
 }
 
 void ReDockItContainer::OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj)
 {
-  DBG("[ReDockIt] OnProjectSwitch: %p -> %p\n", oldProj, newProj);
+  HWND parent = m_hwnd ? GetParent(m_hwnd) : nullptr;
+  HWND grandparent = parent ? GetParent(parent) : nullptr;
+  DBG("[ReDockIt] OnProjectSwitch: %p -> %p (hwnd=%p vis=%d winVis=%d parent=%p parentVis=%d gp=%p gpVis=%d)\n",
+      oldProj, newProj, (void*)m_hwnd, m_visible,
+      m_hwnd ? IsWindowVisible(m_hwnd) : 0,
+      (void*)parent, parent ? IsWindowVisible(parent) : 0,
+      (void*)grandparent, grandparent ? IsWindowVisible(grandparent) : 0);
 
   // Save current layout to old project (if valid) and global
   if (oldProj) {
@@ -912,6 +937,12 @@ void ReDockItContainer::OnProjectSwitch(ReaProject* oldProj, ReaProject* newProj
     if (!m_tree.LoadSnapshot(snap, nodeCount)) {
       m_tree.Reset();
     }
+    // Re-show docker if hidden (user may have closed it on another project tab)
+    if (!IsWindowVisible(m_hwnd)) {
+      DBG("[ReDockIt] OnProjectSwitch: re-showing docker for project with state\n");
+      ShowWindow(m_hwnd, SW_SHOW);
+    }
+    m_visible = true;
   } else {
     DBG("[ReDockIt] OnProjectSwitch: no per-project state, showing empty panes\n");
     memset(panes, 0, sizeof(panes));
