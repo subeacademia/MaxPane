@@ -587,6 +587,7 @@ void ReDockItContainer::OnSize(int cx, int cy)
 {
   m_tree.Recalculate(cx, cy);
   m_winMgr.RepositionAll(m_tree);
+  // TODO(4.2): targeted InvalidateRect — compute dirty rect instead of full invalidate
   InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
@@ -764,6 +765,7 @@ void ReDockItContainer::OnMouseMove(int x, int y)
     GetClientRect(m_hwnd, &rc);
     m_tree.Drag(x, y, rc.right - rc.left, rc.bottom - rc.top);
     m_winMgr.RepositionAll(m_tree);
+    // TODO(4.2): targeted InvalidateRect — compute dirty rect instead of full invalidate
     InvalidateRect(m_hwnd, nullptr, TRUE);
     return;
   }
