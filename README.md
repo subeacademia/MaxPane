@@ -2,7 +2,7 @@
 
 **Nested docker layouts for REAPER** — a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.
 
-![MaxPane](docs/images/MaxPane.png)
+![MaxPane](docs/images/maxpane-hero.png)
 
 > *Capture any REAPER window — Media Explorer, FX Browser, Mixer, Actions, or even ReaImGui scripts — into a single tiling container with resizable split panes and tabbed panels.*
 
@@ -29,9 +29,9 @@
 
 | Create grid layout | Assign windows to panes | Recall workspace |
 |:---:|:---:|:---:|
-| ![Create grid](docs/images/Create_grid.gif) | ![Assign panes](docs/images/assigning_panes.gif) | ![Recall workspace](docs/images/recall-workspace.gif) |
+| ![Create grid](docs/images/create-grid.gif) | ![Assign windows](docs/images/assign-windows.gif) | ![Recall workspace](docs/images/workspace-recall.gif) |
 
-![MaxPane layout](docs/images/MaxPane2.png)
+![MaxPane layout](docs/images/maxpane-layout.png)
 
 ## Installation
 
