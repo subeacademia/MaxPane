@@ -25,5 +25,8 @@ cpp/WDL/
 # Debug logs
 maxpane_debug.log
 
+# Forum post drafts
+forum_post*.txt
+
 # Claude Code project files
 .claude/
