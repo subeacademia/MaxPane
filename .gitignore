@@ -27,6 +27,10 @@ maxpane_debug.log
 
 # Forum post drafts
 forum_post*.txt
+forum_replies.txt
+
+# Bugfix handoff (temporary, between sessions)
+cpp/BUGFIX_HANDOFF.md
 
 # Claude Code project files
 .claude/

@@ -322,6 +322,21 @@ bool WindowManager::DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd
 {
   if (!targetHwnd || !containerHwnd) return false;
 
+  // Guard: never capture a window that is an ancestor of our container.
+  // That would create a circular parent chain (e.g. capturing the Docker
+  // that MaxPane itself is docked inside) and crash.
+  {
+    HWND ancestor = GetParent(containerHwnd);
+    while (ancestor) {
+      if (ancestor == targetHwnd) {
+        DBG("[MaxPane] DoCapture: REJECTED — target %p is ancestor of container (circular)\n",
+            (void*)targetHwnd);
+        return false;
+      }
+      ancestor = GetParent(ancestor);
+    }
+  }
+
   tab.originalParent = GetParent(targetHwnd);
 
   char targetTitle[256] = {};

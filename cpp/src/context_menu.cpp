@@ -43,6 +43,10 @@ static BOOL CALLBACK EnumOpenWindowsProc(HWND hwnd, LPARAM lParam)
   if (data->winMgr->IsWindowCaptured(hwnd)) return TRUE;
   if (strlen(buf) < 3) return TRUE;
 
+  // Skip windows that are ancestors of our container (e.g. the Docker
+  // that MaxPane is docked inside) — capturing them would be circular.
+  if (data->containerHwnd && IsChild(hwnd, data->containerHwnd)) return TRUE;
+
   g_openWindows[g_openWindowCount].hwnd = hwnd;
   safe_strncpy(g_openWindows[g_openWindowCount].title, buf, sizeof(g_openWindows[g_openWindowCount].title));
   g_openWindowCount++;
