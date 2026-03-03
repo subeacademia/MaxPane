@@ -239,7 +239,7 @@ void WorkspaceManager::ReadPaneTabsStatic(const char* prefix, PaneSnapshot* pane
     for (int t = 0; t < panes[p].tabCount && t < MAX_TABS_PER_PANE; t++) {
       snprintf(key, sizeof(key), "%spane_%d_tab_%d", prefix, p, t);
       val = state.Get(EXT_SECTION, key);
-      DBG("[ReDockIt] ReadPaneTabs: %s = '%s'\n", key, val ? val : "(null)");
+      DBG("[MaxPane] ReadPaneTabs: %s = '%s'\n", key, val ? val : "(null)");
       if (val) {
         if (strncmp(val, "arb:", 4) == 0) {
           panes[p].tabs[t].isArbitrary = true;
@@ -265,14 +265,14 @@ void WorkspaceManager::ReadPaneTabsStatic(const char* prefix, PaneSnapshot* pane
             }
             // Name after second colon
             safe_strncpy(panes[p].tabs[t].name, secondColon + 1, sizeof(panes[p].tabs[t].name));
-            DBG("[ReDockIt] ReadPaneTabs: parsed arb cmd='%s' action=%d name='%s'\n",
+            DBG("[MaxPane] ReadPaneTabs: parsed arb cmd='%s' action=%d name='%s'\n",
                 panes[p].tabs[t].actionCommand, panes[p].tabs[t].toggleAction, secondColon + 1);
           } else {
             // Legacy format — no action command
             panes[p].tabs[t].toggleAction = 0;
             panes[p].tabs[t].actionCommand[0] = '\0';
             safe_strncpy(panes[p].tabs[t].name, afterArb, sizeof(panes[p].tabs[t].name));
-            DBG("[ReDockIt] ReadPaneTabs: parsed arb LEGACY name='%s'\n", afterArb);
+            DBG("[MaxPane] ReadPaneTabs: parsed arb LEGACY name='%s'\n", afterArb);
           }
         } else {
           panes[p].tabs[t].isArbitrary = false;
@@ -315,13 +315,13 @@ void WorkspaceManager::SaveCurrentState(const SplitTree& tree, const WindowManag
   bool corrupt = false;
   for (int i = 0; i < nodeCount; i++) {
     if (snap[i].type == NODE_BRANCH && snap[i].childA == snap[i].childB) {
-      DBG("[ReDockIt] SaveCurrentState: WARNING — node %d has childA==childB==%d (corrupt tree)\n",
+      DBG("[MaxPane] SaveCurrentState: WARNING — node %d has childA==childB==%d (corrupt tree)\n",
           i, snap[i].childA);
       corrupt = true;
     }
   }
   if (corrupt) {
-    DBG("[ReDockIt] SaveCurrentState: corrupt tree detected, skipping save\n");
+    DBG("[MaxPane] SaveCurrentState: corrupt tree detected, skipping save\n");
     return;
   }
   WriteTreeNodesStatic("", snap, nodeCount, globalState);
@@ -333,7 +333,7 @@ void WorkspaceManager::SaveCurrentState(const SplitTree& tree, const WindowManag
   for (int p = 0; p < MAX_PANES; p++) {
     const PaneState* ps = winMgr.GetPaneState(p);
     if (ps && ps->tabCount > 0) {
-      DBG("[ReDockIt] SaveCurrentState: pane %d has %d tabs, tab0='%s' captured=%d\n",
+      DBG("[MaxPane] SaveCurrentState: pane %d has %d tabs, tab0='%s' captured=%d\n",
           p, ps->tabCount, ps->tabs[0].name ? ps->tabs[0].name : "(null)",
           ps->tabs[0].captured);
     }
@@ -388,26 +388,26 @@ void WorkspaceManager::SaveProjectState(ReaProject* proj, const SplitTree& tree,
   bool corrupt = false;
   for (int i = 0; i < nodeCount; i++) {
     if (snap[i].type == NODE_BRANCH && snap[i].childA == snap[i].childB) {
-      DBG("[ReDockIt] SaveProjectState: WARNING — node %d has childA==childB==%d\n",
+      DBG("[MaxPane] SaveProjectState: WARNING — node %d has childA==childB==%d\n",
           i, snap[i].childA);
       corrupt = true;
     }
   }
   if (corrupt) {
-    DBG("[ReDockIt] SaveProjectState: corrupt tree detected, skipping save\n");
+    DBG("[MaxPane] SaveProjectState: corrupt tree detected, skipping save\n");
     return;
   }
   WriteTreeNodesStatic("", snap, nodeCount, projState);
   WritePaneTabsStatic("", nullptr, MAX_PANES, &winMgr, projState);
 
-  DBG("[ReDockIt] SaveProjectState: saved %d nodes to proj=%p\n", nodeCount, proj);
+  DBG("[MaxPane] SaveProjectState: saved %d nodes to proj=%p\n", nodeCount, proj);
 
   // Mark project dirty so REAPER saves ProjExtState to RPP
   if (g_MarkProjectDirty) {
     g_MarkProjectDirty(proj);
-    DBG("[ReDockIt] SaveProjectState: MarkProjectDirty called on proj=%p\n", proj);
+    DBG("[MaxPane] SaveProjectState: MarkProjectDirty called on proj=%p\n", proj);
   } else {
-    DBG("[ReDockIt] SaveProjectState: WARNING — MarkProjectDirty is NULL!\n");
+    DBG("[MaxPane] SaveProjectState: WARNING — MarkProjectDirty is NULL!\n");
   }
 }
 
@@ -447,9 +447,9 @@ bool WorkspaceManager::HasProjectState(ReaProject* proj) const
 
   // Also try uppercase section + key in case REAPER needs exact RPP case after reload
   char rawBuf2[64] = {};
-  g_GetProjExtState(proj, "REDOCKIT_CPP", "TREE_VERSION", rawBuf2, sizeof(rawBuf2));
+  g_GetProjExtState(proj, "MAXPANE_CPP", "TREE_VERSION", rawBuf2, sizeof(rawBuf2));
 
-  DBG("[ReDockIt] HasProjectState: proj=%p mixed='%s' upper='%s'\n",
+  DBG("[MaxPane] HasProjectState: proj=%p mixed='%s' upper='%s'\n",
       (void*)proj, rawBuf, rawBuf2);
 
   return (rawBuf[0] != '\0' || rawBuf2[0] != '\0');

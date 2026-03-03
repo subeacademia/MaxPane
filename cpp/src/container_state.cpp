@@ -1,4 +1,4 @@
-// container_state.cpp — State persistence for ReDockItContainer
+// container_state.cpp — State persistence for MaxPaneContainer
 // (SaveState, LoadState, ApplyPaneState, workspace save/load/delete)
 #include "container.h"
 #include "config.h"
@@ -16,7 +16,7 @@
 // Save / Load state (delegates to WorkspaceManager for serialization)
 // =========================================================================
 
-void ReDockItContainer::SaveState()
+void MaxPaneContainer::SaveState()
 {
   m_wsMgr->SaveCurrentState(m_tree, m_winMgr);  // global (default + backward compat)
   // Per-project state is now saved via project_config_extension_t (SaveExtensionConfig)
@@ -29,7 +29,7 @@ void ReDockItContainer::SaveState()
   }
 }
 
-void ReDockItContainer::LoadState()
+void MaxPaneContainer::LoadState()
 {
   if (!g_GetExtState) return;
 
@@ -41,7 +41,7 @@ void ReDockItContainer::LoadState()
   if (g_SetExtState && g_Main_OnCommand) {
     const char* staleStr = g_GetExtState(EXT_SECTION, "stale_toggle_actions");
     if (staleStr && staleStr[0]) {
-      DBG("[ReDockIt] LoadState: cleaning stale actions: %s\n", staleStr);
+      DBG("[MaxPane] LoadState: cleaning stale actions: %s\n", staleStr);
       const char* cur = staleStr;
       while (*cur) {
         int a = 0;
@@ -49,7 +49,7 @@ void ReDockItContainer::LoadState()
         if (a > 0) {
           int state = g_GetToggleCommandState ? g_GetToggleCommandState(a) : -1;
           if (state != 0) {
-            DBG("[ReDockIt] LoadState: closing stale action=%d (state=%d)\n", a, state);
+            DBG("[MaxPane] LoadState: closing stale action=%d (state=%d)\n", a, state);
             g_Main_OnCommand(a, 0);
           }
         }
@@ -68,7 +68,7 @@ void ReDockItContainer::LoadState()
   // Try pending RPP state (from project_config_extension_t), then ProjExtState, then global
   bool loadedProject = false;
   if (g_pendingProjectState.valid) {
-    DBG("[ReDockIt] LoadState: using pending RPP state (%d lines)\n",
+    DBG("[MaxPane] LoadState: using pending RPP state (%d lines)\n",
         g_pendingProjectState.lineCount);
     RppReadAccessor rppAcc(g_pendingProjectState.lines, g_pendingProjectState.lineCount);
     const char* treeVer = rppAcc.Get(EXT_SECTION, "tree_version");
@@ -80,7 +80,7 @@ void ReDockItContainer::LoadState()
         memset(panes, 0, sizeof(panes));
         WorkspaceManager::ReadPaneTabsStatic("", panes, MAX_PANES, rppAcc);
         loadedProject = true;
-        DBG("[ReDockIt] LoadState: loaded RPP state (nodes=%d)\n", nodeCount);
+        DBG("[MaxPane] LoadState: loaded RPP state (nodes=%d)\n", nodeCount);
       }
     }
     g_pendingProjectState.valid = false;  // consumed
@@ -89,11 +89,11 @@ void ReDockItContainer::LoadState()
 
   if (!loadedProject && g_EnumProjects) {
     ReaProject* proj = g_EnumProjects(-1, nullptr, 0);
-    DBG("[ReDockIt] LoadState: project=%p, hasState=%d\n",
+    DBG("[MaxPane] LoadState: project=%p, hasState=%d\n",
         proj, proj ? m_wsMgr->HasProjectState(proj) : -1);
     if (proj && m_wsMgr->HasProjectState(proj)) {
       loadedProject = m_wsMgr->LoadProjectState(proj, snap, nodeCount, panes, hasTreeFormat);
-      DBG("[ReDockIt] LoadState: loaded per-project ProjExtState (nodes=%d)\n", nodeCount);
+      DBG("[MaxPane] LoadState: loaded per-project ProjExtState (nodes=%d)\n", nodeCount);
       m_pendingRppLoad = false;
     }
   }
@@ -101,11 +101,11 @@ void ReDockItContainer::LoadState()
   bool loaded = loadedProject;
   if (!loaded) {
     loaded = m_wsMgr->LoadCurrentState(snap, nodeCount, panes, hasTreeFormat);
-    DBG("[ReDockIt] LoadState: loaded global state (nodes=%d)\n", nodeCount);
+    DBG("[MaxPane] LoadState: loaded global state (nodes=%d)\n", nodeCount);
     // Restore panes from global state — recapture the same windows as last session.
     // If RPP data arrives later, OnTimer will override with project-specific state.
     m_pendingRppLoad = true;
-    DBG("[ReDockIt] LoadState: will recapture from global state, RPP may override later\n");
+    DBG("[MaxPane] LoadState: will recapture from global state, RPP may override later\n");
   }
 
   if (hasTreeFormat) {
@@ -113,7 +113,7 @@ void ReDockItContainer::LoadState()
       m_tree.Reset();
     } else {
       if (!m_tree.LoadSnapshot(snap, nodeCount)) {
-        DBG("[ReDockIt] LoadState: corrupt tree detected, saving clean reset state\n");
+        DBG("[MaxPane] LoadState: corrupt tree detected, saving clean reset state\n");
         SaveState();
       }
     }
@@ -128,7 +128,7 @@ void ReDockItContainer::LoadState()
 
 }
 
-void ReDockItContainer::ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions)
+void MaxPaneContainer::ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions)
 {
   bool needsCaptureTimer = false;
 
@@ -151,7 +151,7 @@ void ReDockItContainer::ApplyPaneState(const PaneSnapshot* panes, int maxPanes, 
             if (fav.actionCommand[0] && strcmp(fav.actionCommand, "0") != 0) {
               arbAction = fav.toggleAction;
               arbCmd = fav.actionCommand;
-              DBG("[ReDockIt] ApplyPaneState: enriched '%s' from favorites: action=%d cmd='%s'\n",
+              DBG("[MaxPane] ApplyPaneState: enriched '%s' from favorites: action=%d cmd='%s'\n",
                   winName, arbAction, arbCmd);
             }
           }
@@ -206,12 +206,12 @@ void ReDockItContainer::ApplyPaneState(const PaneSnapshot* panes, int maxPanes, 
 // Workspace management (delegates to WorkspaceManager)
 // =========================================================================
 
-void ReDockItContainer::SaveWorkspace(const char* name)
+void MaxPaneContainer::SaveWorkspace(const char* name)
 {
   m_wsMgr->Save(name, m_tree, m_winMgr);
 }
 
-void ReDockItContainer::LoadWorkspace(const char* name)
+void MaxPaneContainer::LoadWorkspace(const char* name)
 {
   if (!name || !name[0]) return;
 
@@ -294,7 +294,7 @@ void ReDockItContainer::LoadWorkspace(const char* name)
       if (n > 0) len += n;
     }
     g_SetExtState(EXT_SECTION, "stale_toggle_actions", buf, true);
-    DBG("[ReDockIt] LoadWorkspace: stale list (%d actions): %s\n", staleCount, buf);
+    DBG("[MaxPane] LoadWorkspace: stale list (%d actions): %s\n", staleCount, buf);
   }
 
   // --- Release and reload ---
@@ -326,7 +326,7 @@ void ReDockItContainer::LoadWorkspace(const char* name)
   SaveState();
 }
 
-void ReDockItContainer::DeleteWorkspace(const char* name)
+void MaxPaneContainer::DeleteWorkspace(const char* name)
 {
   m_wsMgr->Delete(name);
 }

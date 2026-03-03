@@ -24,10 +24,10 @@ class CaptureQueue;
 class FavoritesManager;
 class WorkspaceManager;
 
-class ReDockItContainer {
+class MaxPaneContainer {
 public:
-  ReDockItContainer();
-  ~ReDockItContainer();
+  MaxPaneContainer();
+  ~MaxPaneContainer();
 
   bool Create();
   void Shutdown();

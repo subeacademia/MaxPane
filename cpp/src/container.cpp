@@ -27,7 +27,7 @@ static void ExpandRect(RECT& dst, const RECT& src)
 // Constructor / lifecycle
 // =========================================================================
 
-ReDockItContainer::ReDockItContainer()
+MaxPaneContainer::MaxPaneContainer()
   : m_hwnd(nullptr)
   , m_visible(false)
   , m_captureQueue(std::make_unique<CaptureQueue>())
@@ -52,7 +52,7 @@ ReDockItContainer::ReDockItContainer()
   m_brushEmptyHeader = CreateSolidBrush(COLOR_EMPTY_HEADER_BG);
 }
 
-ReDockItContainer::~ReDockItContainer()
+MaxPaneContainer::~MaxPaneContainer()
 {
   Shutdown();
   SafeDeleteBrush(m_brushTabBarBg);
@@ -61,7 +61,7 @@ ReDockItContainer::~ReDockItContainer()
   SafeDeleteBrush(m_brushEmptyHeader);
 }
 
-bool ReDockItContainer::Create()
+bool MaxPaneContainer::Create()
 {
   if (m_hwnd) return true;
 
@@ -73,7 +73,7 @@ bool ReDockItContainer::Create()
   LoadState();
 
   if (g_DockWindowAddEx) {
-    g_DockWindowAddEx(m_hwnd, "ReDockIt", "ReDockIt_container", true);
+    g_DockWindowAddEx(m_hwnd, "MaxPane", "MaxPane_container", true);
   }
 
   SetTimer(m_hwnd, TIMER_ID_CHECK, TIMER_INTERVAL, nullptr);
@@ -81,7 +81,7 @@ bool ReDockItContainer::Create()
   m_visible = true;
 
   if (g_SetExtState) {
-    g_SetExtState("ReDockIt_cpp", "was_visible", "1", true);
+    g_SetExtState("MaxPane_cpp", "was_visible", "1", true);
   }
 
   return true;
@@ -90,11 +90,11 @@ bool ReDockItContainer::Create()
 // Defined in main.cpp — set by onAtExit to prevent Shutdown from overwriting with empty panes
 extern "C" bool g_atexitSaved;
 
-void ReDockItContainer::Shutdown()
+void MaxPaneContainer::Shutdown()
 {
   if (!m_hwnd) return;
 
-  DBG("[ReDockIt] Shutdown: starting, hwnd=%p atexitSaved=%d\n", m_hwnd, g_atexitSaved);
+  DBG("[MaxPane] Shutdown: starting, hwnd=%p atexitSaved=%d\n", m_hwnd, g_atexitSaved);
 
   if (!g_atexitSaved) {
     SaveState();
@@ -112,7 +112,7 @@ void ReDockItContainer::Shutdown()
     if (ps) {
       for (int t = 0; t < ps->tabCount; t++) {
         if (ps->tabs[t].captured) {
-          DBG("[ReDockIt] Shutdown: releasing pane %d tab %d '%s' action=%d toggleState=%d\n",
+          DBG("[MaxPane] Shutdown: releasing pane %d tab %d '%s' action=%d toggleState=%d\n",
               p, t, ps->tabs[t].name ? ps->tabs[t].name : "(null)",
               ps->tabs[t].toggleAction,
               (g_GetToggleCommandState && ps->tabs[t].toggleAction > 0)
@@ -124,7 +124,7 @@ void ReDockItContainer::Shutdown()
 
   m_winMgr.ReleaseAll();
   KillTimer(m_hwnd, TIMER_ID_CHECK);
-  DBG("[ReDockIt] Shutdown: complete\n");
+  DBG("[MaxPane] Shutdown: complete\n");
 
   if (g_DockWindowRemove) {
     g_DockWindowRemove(m_hwnd);
@@ -135,25 +135,25 @@ void ReDockItContainer::Shutdown()
   m_visible = false;
 }
 
-void ReDockItContainer::Show()
+void MaxPaneContainer::Show()
 {
   if (!m_hwnd) { Create(); return; }
   ShowWindow(m_hwnd, SW_SHOW);
   m_visible = true;
 }
 
-void ReDockItContainer::Toggle()
+void MaxPaneContainer::Toggle()
 {
   if (!m_hwnd) { Create(); return; }
-  DBG("[ReDockIt] Toggle: closing\n");
+  DBG("[MaxPane] Toggle: closing\n");
   // User explicitly closing — mark as not visible for next startup
   if (g_SetExtState) {
-    g_SetExtState("ReDockIt_cpp", "was_visible", "0", true);
+    g_SetExtState("MaxPane_cpp", "was_visible", "0", true);
   }
   Shutdown();
 }
 
-bool ReDockItContainer::IsVisible() const
+bool MaxPaneContainer::IsVisible() const
 {
   return m_hwnd && IsWindowVisible(m_hwnd);
 }
@@ -162,7 +162,7 @@ bool ReDockItContainer::IsVisible() const
 // RefreshLayout
 // =========================================================================
 
-void ReDockItContainer::RefreshLayout()
+void MaxPaneContainer::RefreshLayout()
 {
   if (!m_hwnd) return;
   RECT rc;
@@ -176,12 +176,12 @@ void ReDockItContainer::RefreshLayout()
 // Capture timer helpers
 // =========================================================================
 
-void ReDockItContainer::StartCaptureTimer()
+void MaxPaneContainer::StartCaptureTimer()
 {
   SetTimer(m_hwnd, TIMER_ID_CAPTURE, TIMER_CAPTURE_INTERVAL, nullptr);
 }
 
-void ReDockItContainer::StopCaptureTimerIfIdle()
+void MaxPaneContainer::StopCaptureTimerIfIdle()
 {
   if (!m_captureMode.active && !m_captureQueue->HasPending()) {
     KillTimer(m_hwnd, TIMER_ID_CAPTURE);
@@ -192,7 +192,7 @@ void ReDockItContainer::StopCaptureTimerIfIdle()
 // Layout preset / Split / Merge
 // =========================================================================
 
-void ReDockItContainer::ApplyPreset(LayoutPreset preset)
+void MaxPaneContainer::ApplyPreset(LayoutPreset preset)
 {
   if (preset < 0 || preset >= PRESET_COUNT) return;
 
@@ -205,7 +205,7 @@ void ReDockItContainer::ApplyPreset(LayoutPreset preset)
   SaveState();
 }
 
-void ReDockItContainer::SplitPane(int paneId, SplitterOrientation orient)
+void MaxPaneContainer::SplitPane(int paneId, SplitterOrientation orient)
 {
   int nodeIdx = m_tree.NodeForPane(paneId);
   if (nodeIdx < 0) return;
@@ -216,7 +216,7 @@ void ReDockItContainer::SplitPane(int paneId, SplitterOrientation orient)
   SaveState();
 }
 
-void ReDockItContainer::MergePane(int paneId)
+void MaxPaneContainer::MergePane(int paneId)
 {
   int nodeIdx = m_tree.NodeForPane(paneId);
   if (nodeIdx < 0) return;
@@ -234,13 +234,13 @@ void ReDockItContainer::MergePane(int paneId)
 // Timer
 // =========================================================================
 
-void ReDockItContainer::OnTimer()
+void MaxPaneContainer::OnTimer()
 {
   // Check if deferred RPP state has become available.
-  // REAPER parses the RPP <REDOCKIT_STATE> chunk asynchronously —
+  // REAPER parses the RPP <MAXPANE_STATE> chunk asynchronously —
   // it may arrive after Create()/LoadState() already ran.
   if (m_pendingRppLoad && g_pendingProjectState.valid) {
-    DBG("[ReDockIt] OnTimer: deferred RPP state now available (%d lines), applying\n",
+    DBG("[MaxPane] OnTimer: deferred RPP state now available (%d lines), applying\n",
         g_pendingProjectState.lineCount);
     m_pendingRppLoad = false;
 
@@ -261,7 +261,7 @@ void ReDockItContainer::OnTimer()
         m_winMgr.ReleaseAll(false);
 
         if (!m_tree.LoadSnapshot(snap, nodeCount)) {
-          DBG("[ReDockIt] OnTimer: deferred RPP tree corrupt, resetting\n");
+          DBG("[MaxPane] OnTimer: deferred RPP tree corrupt, resetting\n");
           m_tree.Reset();
         }
 
@@ -272,7 +272,7 @@ void ReDockItContainer::OnTimer()
         m_winMgr.RepositionAll(m_tree);
         InvalidateRect(m_hwnd, nullptr, TRUE);
 
-        DBG("[ReDockIt] OnTimer: deferred RPP state applied (nodes=%d)\n", nodeCount);
+        DBG("[MaxPane] OnTimer: deferred RPP state applied (nodes=%d)\n", nodeCount);
       }
     }
     g_pendingProjectState.valid = false;  // consumed
@@ -285,7 +285,7 @@ void ReDockItContainer::OnTimer()
 // Context menu (builds menu via context_menu module, dispatches commands)
 // =========================================================================
 
-void ReDockItContainer::OnContextMenu(int x, int y)
+void MaxPaneContainer::OnContextMenu(int x, int y)
 {
   int paneId = PaneAtPoint(x, y);
   if (paneId < 0) return;
@@ -325,7 +325,7 @@ void ReDockItContainer::OnContextMenu(int x, int y)
   HandlePaneMenuCommand(cmd, paneId);
 }
 
-void ReDockItContainer::OnPaneMenuButtonClick(int paneId, int x, int y)
+void MaxPaneContainer::OnPaneMenuButtonClick(int paneId, int x, int y)
 {
   m_wsMgr->LoadList();
   HMENU menu = BuildPaneContextMenu(paneId, m_hwnd, m_tree, m_winMgr, *m_favMgr, *m_wsMgr);
@@ -339,7 +339,7 @@ void ReDockItContainer::OnPaneMenuButtonClick(int paneId, int x, int y)
   HandlePaneMenuCommand(cmd, paneId);
 }
 
-void ReDockItContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
+void MaxPaneContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
 {
   if (cmd == MenuIds::TAB_CLOSE) {
     m_winMgr.CloseTab(paneId, tabIdx);
@@ -386,7 +386,7 @@ void ReDockItContainer::HandleTabMenuCommand(int cmd, int paneId, int tabIdx)
   }
 }
 
-void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
+void MaxPaneContainer::HandlePaneMenuCommand(int cmd, int paneId)
 {
   // Layout preset
   if (cmd >= MenuIds::LAYOUT_BASE && cmd < MenuIds::LAYOUT_BASE + PRESET_COUNT) {
@@ -398,7 +398,7 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
   if (cmd >= MenuIds::KNOWN_BASE && cmd < MenuIds::KNOWN_BASE + NUM_KNOWN_WINDOWS) {
     int idx = cmd - MenuIds::KNOWN_BASE;
 
-    DBG("[ReDockIt] Menu: selected '%s' for pane %d\n", KNOWN_WINDOWS[idx].name, paneId);
+    DBG("[MaxPane] Menu: selected '%s' for pane %d\n", KNOWN_WINDOWS[idx].name, paneId);
 
     HWND found = WindowManager::FindReaperWindow(KNOWN_WINDOWS[idx].searchTitle, m_hwnd);
     if (!found && KNOWN_WINDOWS[idx].altSearchTitle) {
@@ -501,7 +501,7 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
     return;
   }
 
-  // Close ReDockIt container
+  // Close MaxPane container
   if (cmd == MenuIds::CLOSE_CONTAINER) {
     Shutdown();
     return;
@@ -512,14 +512,14 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
     int favIdx = cmd - MenuIds::FAV_BASE;
     if (favIdx >= 0 && favIdx < m_favMgr->GetCount()) {
       const FavoriteEntry& fav = m_favMgr->Get(favIdx);
-      DBG("[ReDockIt] FAV CLICK: '%s' search='%s' action=%d cmd='%s' isKnown=%d pane=%d\n",
+      DBG("[MaxPane] FAV CLICK: '%s' search='%s' action=%d cmd='%s' isKnown=%d pane=%d\n",
           fav.name, fav.searchTitle, fav.toggleAction, fav.actionCommand, fav.isKnown, paneId);
 
       HWND found = WindowManager::FindReaperWindow(fav.searchTitle, m_hwnd);
-      DBG("[ReDockIt] FAV CLICK: FindReaperWindow('%s') -> %p\n", fav.searchTitle, (void*)found);
+      DBG("[MaxPane] FAV CLICK: FindReaperWindow('%s') -> %p\n", fav.searchTitle, (void*)found);
       if (found && fav.isKnown) {
         // Known windows don't need dock frame logic — capture directly
-        DBG("[ReDockIt] FAV CLICK: known window found, capturing directly\n");
+        DBG("[MaxPane] FAV CLICK: known window found, capturing directly\n");
         for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
           if (strcmp(KNOWN_WINDOWS[j].name, fav.name) == 0) {
             m_winMgr.CaptureByIndex(paneId, j, m_hwnd);
@@ -536,19 +536,19 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
         bool isDockFrame = (strstr(foundTitle, "(docked)") != nullptr);
         if (isDockFrame) {
           // Dock frame found — capture directly, it has the UI
-          DBG("[ReDockIt] FAV CLICK: dock frame found, capturing directly\n");
+          DBG("[MaxPane] FAV CLICK: dock frame found, capturing directly\n");
           m_winMgr.CaptureArbitraryWindow(paneId, found, fav.name, m_hwnd,
                                            fav.toggleAction, fav.actionCommand);
           RefreshLayout();
           SaveState();
         } else {
           // Inner window found — enqueue via CaptureQueue to wait for dock frame
-          DBG("[ReDockIt] FAV CLICK: inner window found, enqueue to wait for dock frame\n");
+          DBG("[MaxPane] FAV CLICK: inner window found, enqueue to wait for dock frame\n");
           m_captureQueue->EnqueueArbitrary(paneId, fav.searchTitle, fav.toggleAction, fav.actionCommand);
           StartCaptureTimer();
         }
       } else if (fav.toggleAction > 0) {
-        DBG("[ReDockIt] FAV CLICK: window not found, has toggle action=%d -> enqueue + fire action\n",
+        DBG("[MaxPane] FAV CLICK: window not found, has toggle action=%d -> enqueue + fire action\n",
             fav.toggleAction);
         if (fav.isKnown) {
           for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
@@ -562,7 +562,7 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
         }
         StartCaptureTimer();
       } else {
-        DBG("[ReDockIt] FAV CLICK: window not found, NO toggle action -> enqueue for polling\n");
+        DBG("[MaxPane] FAV CLICK: window not found, NO toggle action -> enqueue for polling\n");
         if (fav.isKnown) {
           for (int j = 0; j < NUM_KNOWN_WINDOWS; j++) {
             if (strcmp(KNOWN_WINDOWS[j].name, fav.name) == 0) {
@@ -628,13 +628,13 @@ void ReDockItContainer::HandlePaneMenuCommand(int cmd, int paneId)
 // Dialog Procedure
 // =========================================================================
 
-INT_PTR CALLBACK ReDockItContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK MaxPaneContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  ReDockItContainer* self = (ReDockItContainer*)(LONG_PTR)GetWindowLong(hwnd, GWL_USERDATA);
+  MaxPaneContainer* self = (MaxPaneContainer*)(LONG_PTR)GetWindowLong(hwnd, GWL_USERDATA);
 
   switch (msg) {
     case WM_INITDIALOG: {
-      self = (ReDockItContainer*)lParam;
+      self = (MaxPaneContainer*)lParam;
       SetWindowLong(hwnd, GWL_USERDATA, (LONG_PTR)self);
       if (self) self->m_hwnd = hwnd;
       return 0;

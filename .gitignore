@@ -23,7 +23,7 @@ cpp/WDL/
 *~
 
 # Debug logs
-redockit_debug.log
+maxpane_debug.log
 
 # Claude Code project files
 .claude/

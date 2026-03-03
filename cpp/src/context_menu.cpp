@@ -540,14 +540,14 @@ HMENU BuildPaneContextMenu(int paneId,
     InsertMenuItem(menu, insertPos++, TRUE, &mi);
   }
 
-  // --- Close ReDockIt ---
+  // --- Close MaxPane ---
   {
     MENUITEMINFO mi = {};
     mi.cbSize = sizeof(mi);
     mi.fMask = MIIM_ID | MIIM_TYPE;
     mi.fType = MFT_STRING;
     mi.wID = MenuIds::CLOSE_CONTAINER;
-    mi.dwTypeData = (char*)"Close ReDockIt";
+    mi.dwTypeData = (char*)"Close MaxPane";
     InsertMenuItem(menu, insertPos++, TRUE, &mi);
   }
 

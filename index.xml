@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<index version="1" name="ReDockIT">
+<index version="1" name="MaxPane">
   <category name="Extensions">
-    <reapack name="reaper_redockit" type="extension" desc="Nested docker layouts for REAPER">
+    <reapack name="reaper_maxpane" type="extension" desc="Nested docker layouts for REAPER">
       <metadata>
-        <link rel="website">https://github.com/b4s1c/ReDockIT</link>
-        <description><![CDATA[# ReDockIT
+        <link rel="website">https://github.com/b4s1c/MaxPane</link>
+        <description><![CDATA[# MaxPane
 
 Nested docker layouts for REAPER — a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.
 
@@ -33,23 +33,23 @@ Nested docker layouts for REAPER — a native C++ extension that lets you build 
 - Improved shutdown lifecycle and quit interception
 - Simplified to global docker model
 ]]></changelog>
-        <source platform="darwin-arm64" file="reaper_redockit-arm64.dylib">https://github.com/b4s1c/ReDockIT/releases/download/v1.1.0/reaper_redockit-arm64.dylib</source>
-        <source platform="darwin64" file="reaper_redockit-x86_64.dylib">https://github.com/b4s1c/ReDockIT/releases/download/v1.1.0/reaper_redockit-x86_64.dylib</source>
-        <source platform="win64" file="reaper_redockit-x64.dll">https://github.com/b4s1c/ReDockIT/releases/download/v1.1.0/reaper_redockit-x64.dll</source>
-        <source platform="linux64" file="reaper_redockit-x86_64.so">https://github.com/b4s1c/ReDockIT/releases/download/v1.1.0/reaper_redockit-x86_64.so</source>
+        <source platform="darwin-arm64" file="reaper_maxpane-arm64.dylib">https://github.com/b4s1c/MaxPane/releases/download/v1.1.0/reaper_maxpane-arm64.dylib</source>
+        <source platform="darwin64" file="reaper_maxpane-x86_64.dylib">https://github.com/b4s1c/MaxPane/releases/download/v1.1.0/reaper_maxpane-x86_64.dylib</source>
+        <source platform="win64" file="reaper_maxpane-x64.dll">https://github.com/b4s1c/MaxPane/releases/download/v1.1.0/reaper_maxpane-x64.dll</source>
+        <source platform="linux64" file="reaper_maxpane-x86_64.so">https://github.com/b4s1c/MaxPane/releases/download/v1.1.0/reaper_maxpane-x86_64.so</source>
       </version>
 
       <version name="1.0.1" author="b4s1c" time="2026-03-01T00:00:00Z">
         <changelog><![CDATA[Bugfix release
 
-- Fix startup deadlock when REAPER restores docked ReDockIT during project load
+- Fix startup deadlock when REAPER restores docked MaxPane during project load
 - Code quality improvements: safe_strncpy, unique_ptr, named constants
 - Debug logging now conditional on Debug build only
 ]]></changelog>
-        <source platform="darwin-arm64" file="reaper_redockit-arm64.dylib">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.1/reaper_redockit-arm64.dylib</source>
-        <source platform="darwin64" file="reaper_redockit-x86_64.dylib">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.1/reaper_redockit-x86_64.dylib</source>
-        <source platform="win64" file="reaper_redockit-x64.dll">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.1/reaper_redockit-x64.dll</source>
-        <source platform="linux64" file="reaper_redockit-x86_64.so">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.1/reaper_redockit-x86_64.so</source>
+        <source platform="darwin-arm64" file="reaper_maxpane-arm64.dylib">https://github.com/b4s1c/MaxPane/releases/download/v1.0.1/reaper_maxpane-arm64.dylib</source>
+        <source platform="darwin64" file="reaper_maxpane-x86_64.dylib">https://github.com/b4s1c/MaxPane/releases/download/v1.0.1/reaper_maxpane-x86_64.dylib</source>
+        <source platform="win64" file="reaper_maxpane-x64.dll">https://github.com/b4s1c/MaxPane/releases/download/v1.0.1/reaper_maxpane-x64.dll</source>
+        <source platform="linux64" file="reaper_maxpane-x86_64.so">https://github.com/b4s1c/MaxPane/releases/download/v1.0.1/reaper_maxpane-x86_64.so</source>
       </version>
 
       <version name="1.0.0" author="b4s1c" time="2025-03-01T00:00:00Z">
@@ -64,10 +64,10 @@ Nested docker layouts for REAPER — a native C++ extension that lets you build 
 - 5 built-in layout presets
 - Auto-open on startup, full state persistence
 ]]></changelog>
-        <source platform="darwin-arm64" file="reaper_redockit-arm64.dylib">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.0/reaper_redockit-arm64.dylib</source>
-        <source platform="darwin64" file="reaper_redockit-x86_64.dylib">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.0/reaper_redockit-x86_64.dylib</source>
-        <source platform="win64" file="reaper_redockit-x64.dll">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.0/reaper_redockit-x64.dll</source>
-        <source platform="linux64" file="reaper_redockit-x86_64.so">https://github.com/b4s1c/ReDockIT/releases/download/v1.0.0/reaper_redockit-x86_64.so</source>
+        <source platform="darwin-arm64" file="reaper_maxpane-arm64.dylib">https://github.com/b4s1c/MaxPane/releases/download/v1.0.0/reaper_maxpane-arm64.dylib</source>
+        <source platform="darwin64" file="reaper_maxpane-x86_64.dylib">https://github.com/b4s1c/MaxPane/releases/download/v1.0.0/reaper_maxpane-x86_64.dylib</source>
+        <source platform="win64" file="reaper_maxpane-x64.dll">https://github.com/b4s1c/MaxPane/releases/download/v1.0.0/reaper_maxpane-x64.dll</source>
+        <source platform="linux64" file="reaper_maxpane-x86_64.so">https://github.com/b4s1c/MaxPane/releases/download/v1.0.0/reaper_maxpane-x86_64.so</source>
       </version>
     </reapack>
   </category>

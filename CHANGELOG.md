@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to ReDockIT will be documented in this file.
+All notable changes to MaxPane will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
@@ -56,7 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [1.0.1] - 2026-03-01
 
 ### Fixed
-- **Startup deadlock**: REAPER could hang when loading a project with ReDockIT docked. The capture queue now defers `Main_OnCommand` calls during `LoadState()` to avoid calling REAPER APIs while the project is still loading.
+- **Startup deadlock**: REAPER could hang when loading a project with MaxPane docked. The capture queue now defers `Main_OnCommand` calls during `LoadState()` to avoid calling REAPER APIs while the project is still loading.
 
 ### Changed
 - Replaced raw `new`/`delete` with `std::unique_ptr` for safer resource management

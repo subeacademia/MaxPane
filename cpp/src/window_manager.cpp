@@ -60,12 +60,12 @@ static BOOL CALLBACK FindWindowEnumProc(HWND hwnd, LPARAM lParam)
   if (dockedSuffix) *dockedSuffix = '\0';
 
   if (strstr(matchBuf, data->searchTitle) == matchBuf) {
-    DBG("[ReDockIt] %s: PREFIX match '%s' for '%s' hwnd=%p\n", data->dbgPrefix, buf, data->searchTitle, (void*)hwnd);
+    DBG("[MaxPane] %s: PREFIX match '%s' for '%s' hwnd=%p\n", data->dbgPrefix, buf, data->searchTitle, (void*)hwnd);
     data->result = hwnd;
     return FALSE;
   }
   if (strstr(matchBuf, data->searchTitle)) {
-    DBG("[ReDockIt] %s: SUBSTR match '%s' for '%s' hwnd=%p\n", data->dbgPrefix, buf, data->searchTitle, (void*)hwnd);
+    DBG("[MaxPane] %s: SUBSTR match '%s' for '%s' hwnd=%p\n", data->dbgPrefix, buf, data->searchTitle, (void*)hwnd);
     data->result = hwnd;
     return FALSE;
   }
@@ -76,7 +76,7 @@ HWND WindowManager::FindReaperWindow(const char* title, HWND skipContainer)
 {
   if (!title) return nullptr;
 
-  DBG("[ReDockIt] FindReaperWindow: searching for '%s'\n", title);
+  DBG("[MaxPane] FindReaperWindow: searching for '%s'\n", title);
 
   // 1. Prefer dock frame version "Title (docked)" — ReaImGui scripts use this
   //    The dock frame contains the actual rendered UI; the inner window is often empty/grey.
@@ -88,7 +88,7 @@ HWND WindowManager::FindReaperWindow(const char* title, HWND skipContainer)
       if (skipContainer && (hwnd == skipContainer || IsChild(skipContainer, hwnd))) {
         hwnd = nullptr;
       } else {
-        DBG("[ReDockIt] FindReaperWindow: DOCKED FRAME match '%s' hwnd=%p\n", dockedTitle, (void*)hwnd);
+        DBG("[MaxPane] FindReaperWindow: DOCKED FRAME match '%s' hwnd=%p\n", dockedTitle, (void*)hwnd);
         return hwnd;
       }
     }
@@ -101,7 +101,7 @@ HWND WindowManager::FindReaperWindow(const char* title, HWND skipContainer)
     if (skipContainer && (hwnd == skipContainer || IsChild(skipContainer, hwnd))) {
       hwnd = nullptr;
     } else {
-      DBG("[ReDockIt] FindReaperWindow: EXACT match hwnd=%p\n", (void*)hwnd);
+      DBG("[MaxPane] FindReaperWindow: EXACT match hwnd=%p\n", (void*)hwnd);
       return hwnd;
     }
   }
@@ -125,7 +125,7 @@ HWND WindowManager::FindReaperWindow(const char* title, HWND skipContainer)
       FindWindowData dockData = { dockedTitle, nullptr, skipContainer, "EnumChildWindows" };
       EnumChildWindows(g_reaperMainHwnd, FindWindowEnumProc, (LPARAM)&dockData);
       if (dockData.result) {
-        DBG("[ReDockIt] FindReaperWindow: DOCKED FRAME child match hwnd=%p\n", (void*)dockData.result);
+        DBG("[MaxPane] FindReaperWindow: DOCKED FRAME child match hwnd=%p\n", (void*)dockData.result);
         return dockData.result;
       }
     }
@@ -142,7 +142,7 @@ HWND WindowManager::FindReaperWindow(const char* title, HWND skipContainer)
         dockData.result = nullptr;
         EnumChildWindows(dockChild, FindWindowEnumProc, (LPARAM)&dockData);
         if (dockData.result) {
-          DBG("[ReDockIt] FindReaperWindow: DOCKED FRAME grandchild match hwnd=%p\n", (void*)dockData.result);
+          DBG("[MaxPane] FindReaperWindow: DOCKED FRAME grandchild match hwnd=%p\n", (void*)dockData.result);
           return dockData.result;
         }
       }
@@ -167,14 +167,14 @@ HWND WindowManager::FindReaperWindow(const char* title, HWND skipContainer)
       if (data.result) {
         char dockBuf[256];
         GetWindowText(dockChild, dockBuf, sizeof(dockBuf));
-        DBG("[ReDockIt] FindReaperWindow: found '%s' inside '%s' (hwnd=%p)\n",
+        DBG("[MaxPane] FindReaperWindow: found '%s' inside '%s' (hwnd=%p)\n",
             title, dockBuf, (void*)data.result);
         return data.result;
       }
     }
   }
 
-  DBG("[ReDockIt] FindReaperWindow: NOT FOUND '%s'\n", title);
+  DBG("[MaxPane] FindReaperWindow: NOT FOUND '%s'\n", title);
   return nullptr;
 }
 
@@ -191,7 +191,7 @@ static BOOL CALLBACK DumpWindowEnumProc(HWND hwnd, LPARAM lParam)
   char buf[512];
   GetWindowText(hwnd, buf, sizeof(buf));
   if (buf[0]) {
-    DBG("[ReDockIt] DumpWindows[%d]: '%s' hwnd=%p\n", data->count, buf, (void*)hwnd);
+    DBG("[MaxPane] DumpWindows[%d]: '%s' hwnd=%p\n", data->count, buf, (void*)hwnd);
     data->count++;
   }
   return TRUE;
@@ -199,21 +199,21 @@ static BOOL CALLBACK DumpWindowEnumProc(HWND hwnd, LPARAM lParam)
 
 void WindowManager::DumpAllWindowTitles(const char* context)
 {
-  DBG("[ReDockIt] === DumpAllWindowTitles: %s ===\n", context ? context : "");
+  DBG("[MaxPane] === DumpAllWindowTitles: %s ===\n", context ? context : "");
   DumpWindowData data = { nullptr, 0 };
 
   // Top-level windows
-  DBG("[ReDockIt] -- Top-level windows --\n");
+  DBG("[MaxPane] -- Top-level windows --\n");
   data.count = 0;
   EnumWindows(DumpWindowEnumProc, (LPARAM)&data);
 
   // Children of REAPER main window
   if (g_reaperMainHwnd) {
-    DBG("[ReDockIt] -- Children of REAPER main window --\n");
+    DBG("[MaxPane] -- Children of REAPER main window --\n");
     data.count = 0;
     EnumChildWindows(g_reaperMainHwnd, DumpWindowEnumProc, (LPARAM)&data);
   }
-  DBG("[ReDockIt] === End DumpAllWindowTitles ===\n");
+  DBG("[MaxPane] === End DumpAllWindowTitles ===\n");
 }
 
 HWND WindowManager::FindChildInParent(HWND parent, const char* title)
@@ -238,7 +238,7 @@ bool WindowManager::CaptureByIndex(int paneId, int knownWindowIndex, HWND contai
 
   const WindowDef& def = KNOWN_WINDOWS[knownWindowIndex];
 
-  DBG("[ReDockIt] CaptureByIndex: pane=%d window='%s' search='%s' alt='%s'\n",
+  DBG("[MaxPane] CaptureByIndex: pane=%d window='%s' search='%s' alt='%s'\n",
           paneId, def.name, def.searchTitle, def.altSearchTitle ? def.altSearchTitle : "(none)");
 
   HWND hwnd = FindReaperWindow(def.searchTitle, containerHwnd);
@@ -246,7 +246,7 @@ bool WindowManager::CaptureByIndex(int paneId, int knownWindowIndex, HWND contai
     hwnd = FindReaperWindow(def.altSearchTitle, containerHwnd);
   }
   if (!hwnd) {
-    DBG("[ReDockIt] CaptureByIndex: FAILED — window not found\n");
+    DBG("[MaxPane] CaptureByIndex: FAILED — window not found\n");
     return false;
   }
 
@@ -259,7 +259,7 @@ bool WindowManager::CaptureByIndex(int paneId, int knownWindowIndex, HWND contai
   tab.toggleAction = def.toggleActionId;
   tab.isArbitrary = false;
 
-  DBG("[ReDockIt] CaptureByIndex: found hwnd=%p, calling DoCapture\n", (void*)hwnd);
+  DBG("[MaxPane] CaptureByIndex: found hwnd=%p, calling DoCapture\n", (void*)hwnd);
 
   if (DoCapture(tab, hwnd, containerHwnd)) {
     if (ps.activeTab >= 0 && ps.activeTab < ps.tabCount) {
@@ -277,7 +277,7 @@ bool WindowManager::CaptureByIndex(int paneId, int knownWindowIndex, HWND contai
 
 bool WindowManager::CaptureArbitraryWindow(int paneId, HWND targetHwnd, const char* displayName, HWND containerHwnd, int toggleAction, const char* actionCmd)
 {
-  DBG("[ReDockIt] CaptureArbitraryWindow: pane=%d name='%s' hwnd=%p action=%d cmd='%s'\n",
+  DBG("[MaxPane] CaptureArbitraryWindow: pane=%d name='%s' hwnd=%p action=%d cmd='%s'\n",
       paneId, displayName ? displayName : "(null)", (void*)targetHwnd, toggleAction,
       actionCmd ? actionCmd : "(null)");
   if (paneId < 0 || paneId >= MAX_PANES) return false;
@@ -285,11 +285,11 @@ bool WindowManager::CaptureArbitraryWindow(int paneId, HWND targetHwnd, const ch
 
   PaneState& ps = m_panes[paneId];
   if (ps.tabCount >= MAX_TABS_PER_PANE) {
-    DBG("[ReDockIt] CaptureArbitraryWindow: REJECTED pane %d full (tabCount=%d)\n", paneId, ps.tabCount);
+    DBG("[MaxPane] CaptureArbitraryWindow: REJECTED pane %d full (tabCount=%d)\n", paneId, ps.tabCount);
     return false;
   }
   if (IsWindowCaptured(targetHwnd)) {
-    DBG("[ReDockIt] CaptureArbitraryWindow: REJECTED hwnd=%p already captured\n", (void*)targetHwnd);
+    DBG("[MaxPane] CaptureArbitraryWindow: REJECTED hwnd=%p already captured\n", (void*)targetHwnd);
     return false;
   }
 
@@ -330,13 +330,13 @@ bool WindowManager::DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd
   char targetTitle[256] = {};
   GetWindowText(targetHwnd, targetTitle, sizeof(targetTitle));
 
-  DBG("[ReDockIt] DoCapture: target=%p title='%s' container=%p\n",
+  DBG("[MaxPane] DoCapture: target=%p title='%s' container=%p\n",
           (void*)targetHwnd, targetTitle, (void*)containerHwnd);
 
   // Detach from docker if needed
   HWND currentParent = tab.originalParent;
   if (currentParent && currentParent != g_reaperMainHwnd) {
-    DBG("[ReDockIt] DoCapture: detaching from docker parent=%p\n", (void*)currentParent);
+    DBG("[MaxPane] DoCapture: detaching from docker parent=%p\n", (void*)currentParent);
     SetParent(targetHwnd, g_reaperMainHwnd);
   }
 
@@ -358,7 +358,7 @@ bool WindowManager::DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd
   // Routing Matrix grid) may have stale frames from before reparent.
   ForceViewLayoutAndDisplay(targetHwnd);
 
-  DBG("[ReDockIt] DoCapture: DONE hwnd=%p captured=true\n", (void*)targetHwnd);
+  DBG("[MaxPane] DoCapture: DONE hwnd=%p captured=true\n", (void*)targetHwnd);
   return true;
 }
 
@@ -366,7 +366,7 @@ void WindowManager::DoRelease(TabEntry& tab, bool toggleOff)
 {
   if (!tab.captured) return;
 
-  DBG("[ReDockIt] DoRelease: '%s' hwnd=%p toggleOff=%d action=%d alive=%d\n",
+  DBG("[MaxPane] DoRelease: '%s' hwnd=%p toggleOff=%d action=%d alive=%d\n",
       tab.name ? tab.name : "(null)", tab.hwnd, toggleOff, tab.toggleAction,
       (tab.hwnd && IsWindow(tab.hwnd)) ? 1 : 0);
 
@@ -380,7 +380,7 @@ void WindowManager::DoRelease(TabEntry& tab, bool toggleOff)
       // properly and set the toggle state to 0.
       SetParent(tab.hwnd, nullptr);
       int toggleState = g_GetToggleCommandState ? g_GetToggleCommandState(tab.toggleAction) : -1;
-      DBG("[ReDockIt] DoRelease: restored to top-level, toggle state=%d action=%d\n",
+      DBG("[MaxPane] DoRelease: restored to top-level, toggle state=%d action=%d\n",
           toggleState, tab.toggleAction);
       if (toggleState != 0)
         g_Main_OnCommand(tab.toggleAction, 0);
@@ -389,7 +389,7 @@ void WindowManager::DoRelease(TabEntry& tab, bool toggleOff)
       HWND restoreParent = tab.originalParent;
       if (!restoreParent || !IsWindow(restoreParent)) restoreParent = g_reaperMainHwnd;
       SetParent(tab.hwnd, restoreParent);
-      DBG("[ReDockIt] DoRelease: reparented to %p\n", (void*)restoreParent);
+      DBG("[MaxPane] DoRelease: reparented to %p\n", (void*)restoreParent);
     }
     ShowWindow(tab.hwnd, SW_HIDE);
   }

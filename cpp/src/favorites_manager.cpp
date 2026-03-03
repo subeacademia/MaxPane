@@ -20,7 +20,7 @@ void FavoritesManager::Load()
   if (!g_GetExtState) return;
 
   const char* countStr = g_GetExtState(EXT_SECTION, "fav_count");
-  DBG("[ReDockIt] FavoritesManager::Load: section='%s' fav_count='%s'\n",
+  DBG("[MaxPane] FavoritesManager::Load: section='%s' fav_count='%s'\n",
       EXT_SECTION, countStr ? countStr : "(null)");
   if (!countStr || !countStr[0]) return;
 
@@ -33,7 +33,7 @@ void FavoritesManager::Load()
 
     snprintf(key, sizeof(key), "fav_%d_name", i);
     const char* name = g_GetExtState(EXT_SECTION, key);
-    DBG("[ReDockIt] FavoritesManager::Load: fav_%d_name='%s'\n", i, name ? name : "(null)");
+    DBG("[MaxPane] FavoritesManager::Load: fav_%d_name='%s'\n", i, name ? name : "(null)");
     if (!name || !name[0]) continue;
     safe_strncpy(fav.name, name, sizeof(fav.name));
 
@@ -47,11 +47,11 @@ void FavoritesManager::Load()
 
     snprintf(key, sizeof(key), "fav_%d_actioncmd", i);
     const char* actionCmd = g_GetExtState(EXT_SECTION, key);
-    DBG("[ReDockIt] FavoritesManager::Load: fav_%d_actioncmd='%s'\n", i, actionCmd ? actionCmd : "(null)");
+    DBG("[MaxPane] FavoritesManager::Load: fav_%d_actioncmd='%s'\n", i, actionCmd ? actionCmd : "(null)");
     if (actionCmd && actionCmd[0]) {
       safe_strncpy(fav.actionCommand, actionCmd, sizeof(fav.actionCommand));
       fav.toggleAction = ResolveActionCommand(actionCmd);
-      DBG("[ReDockIt] FavoritesManager::Load: resolved actioncmd '%s' -> %d\n",
+      DBG("[MaxPane] FavoritesManager::Load: resolved actioncmd '%s' -> %d\n",
           actionCmd, fav.toggleAction);
     } else {
       // Legacy: try old numeric-only key
@@ -61,7 +61,7 @@ void FavoritesManager::Load()
       if (fav.toggleAction > 0) {
         snprintf(fav.actionCommand, sizeof(fav.actionCommand), "%d", fav.toggleAction);
       }
-      DBG("[ReDockIt] FavoritesManager::Load: legacy action='%s' -> %d\n",
+      DBG("[MaxPane] FavoritesManager::Load: legacy action='%s' -> %d\n",
           actionStr ? actionStr : "(null)", fav.toggleAction);
     }
 
@@ -73,7 +73,7 @@ void FavoritesManager::Load()
     m_count++;
   }
 
-  DBG("[ReDockIt] FavoritesManager: loaded %d favorites\n", m_count);
+  DBG("[MaxPane] FavoritesManager: loaded %d favorites\n", m_count);
 }
 
 void FavoritesManager::Save()
@@ -132,7 +132,7 @@ bool FavoritesManager::Add(const char* name, const char* searchTitle, const char
   m_count++;
 
   Save();
-  DBG("[ReDockIt] FavoritesManager: added '%s' (count=%d)\n", name, m_count);
+  DBG("[MaxPane] FavoritesManager: added '%s' (count=%d)\n", name, m_count);
   return true;
 }
 

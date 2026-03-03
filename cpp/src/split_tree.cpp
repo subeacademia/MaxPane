@@ -483,7 +483,7 @@ bool SplitTree::LoadSnapshot(const NodeSnapshot* in, int nodeCount)
 {
   // Root must exist
   if (nodeCount < 1 || in[0].type == NODE_EMPTY) {
-    DBG("[ReDockIt] LoadSnapshot: empty or rootless snapshot (nodeCount=%d)\n", nodeCount);
+    DBG("[MaxPane] LoadSnapshot: empty or rootless snapshot (nodeCount=%d)\n", nodeCount);
     Reset();
     return false;
   }
@@ -492,18 +492,18 @@ bool SplitTree::LoadSnapshot(const NodeSnapshot* in, int nodeCount)
   for (int i = 0; i < nodeCount && i < MAX_TREE_NODES; i++) {
     if (in[i].type == NODE_BRANCH) {
       if (in[i].childA == in[i].childB) {
-        DBG("[ReDockIt] LoadSnapshot: corrupt node %d (childA==childB==%d)\n", i, in[i].childA);
+        DBG("[MaxPane] LoadSnapshot: corrupt node %d (childA==childB==%d)\n", i, in[i].childA);
         Reset();
         return false;
       }
       if (in[i].childA < 0 || in[i].childA >= MAX_TREE_NODES ||
           in[i].childB < 0 || in[i].childB >= MAX_TREE_NODES) {
-        DBG("[ReDockIt] LoadSnapshot: corrupt node %d (child out of range)\n", i);
+        DBG("[MaxPane] LoadSnapshot: corrupt node %d (child out of range)\n", i);
         Reset();
         return false;
       }
       if (in[i].childA == i || in[i].childB == i) {
-        DBG("[ReDockIt] LoadSnapshot: corrupt node %d (self-reference)\n", i);
+        DBG("[MaxPane] LoadSnapshot: corrupt node %d (self-reference)\n", i);
         Reset();
         return false;
       }
@@ -523,11 +523,11 @@ bool SplitTree::LoadSnapshot(const NodeSnapshot* in, int nodeCount)
     for (int i = 0; i < nodeCount && i < MAX_TREE_NODES; i++) {
       if (in[i].type == NODE_EMPTY) continue;
       if (i == 0 && indegree[i] != 0) {
-        DBG("[ReDockIt] LoadSnapshot: root has indegree %d (expect 0)\n", indegree[i]);
+        DBG("[MaxPane] LoadSnapshot: root has indegree %d (expect 0)\n", indegree[i]);
         Reset(); return false;
       }
       if (i != 0 && indegree[i] != 1) {
-        DBG("[ReDockIt] LoadSnapshot: node %d has indegree %d (expect 1)\n", i, indegree[i]);
+        DBG("[MaxPane] LoadSnapshot: node %d has indegree %d (expect 1)\n", i, indegree[i]);
         Reset(); return false;
       }
     }
@@ -541,13 +541,13 @@ bool SplitTree::LoadSnapshot(const NodeSnapshot* in, int nodeCount)
       int n = stack[--sp];
       if (n < 0 || n >= nodeCount) continue;
       if (visited[n]) {
-        DBG("[ReDockIt] LoadSnapshot: node %d visited twice (corrupt)\n", n);
+        DBG("[MaxPane] LoadSnapshot: node %d visited twice (corrupt)\n", n);
         Reset(); return false;
       }
       visited[n] = true;
       if (in[n].type == NODE_BRANCH) {
         if (sp + 2 > MAX_TREE_NODES) {
-          DBG("[ReDockIt] LoadSnapshot: DFS stack overflow (corrupt tree)\n");
+          DBG("[MaxPane] LoadSnapshot: DFS stack overflow (corrupt tree)\n");
           Reset(); return false;
         }
         stack[sp++] = in[n].childA;
@@ -556,7 +556,7 @@ bool SplitTree::LoadSnapshot(const NodeSnapshot* in, int nodeCount)
     }
     for (int i = 0; i < nodeCount && i < MAX_TREE_NODES; i++) {
       if (in[i].type != NODE_EMPTY && !visited[i]) {
-        DBG("[ReDockIt] LoadSnapshot: node %d unreachable from root\n", i);
+        DBG("[MaxPane] LoadSnapshot: node %d unreachable from root\n", i);
         Reset(); return false;
       }
     }

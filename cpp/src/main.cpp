@@ -1,4 +1,4 @@
-// ReDockIt - REAPER Extension for Nested Docker Layouts
+// MaxPane - REAPER Extension for Nested Docker Layouts
 
 #ifdef _WIN32
 #include <windows.h>
@@ -38,35 +38,35 @@
 #include "debug.h"
 #include <memory>
 
-static std::unique_ptr<ReDockItContainer> g_container;
+static std::unique_ptr<MaxPaneContainer> g_container;
 static int g_cmdId = 0;
 static bool g_startupComplete = false;
 extern "C" bool g_atexitSaved = false;  // prevent Shutdown from overwriting atexit state
 
 // atexit callback — REAPER calls this before main window destroy.
 // Just save state. REAPER already cached wnd_vis before this callback,
-// so the windows will reopen on restart and ReDockIt will recapture them.
+// so the windows will reopen on restart and MaxPane will recapture them.
 static void onAtExit()
 {
-  DBG("[ReDockIt] onAtExit: called, container=%p hwnd=%p\n",
+  DBG("[MaxPane] onAtExit: called, container=%p hwnd=%p\n",
       (void*)g_container.get(), g_container ? (void*)g_container->GetHwnd() : nullptr);
   if (g_container && g_container->GetHwnd()) {
     g_container->SaveState();
     g_atexitSaved = true;  // prevent Shutdown's SaveState from overwriting with empty panes
     // Reparent windows back to REAPER so they're properly cleaned up during quit.
     // Don't toggle off — REAPER already cached wnd_vis, and we WANT them to reopen
-    // on restart so ReDockIt can recapture them.
+    // on restart so MaxPane can recapture them.
     g_container->GetWinMgr().ReleaseAll(false);
-    DBG("[ReDockIt] onAtExit: ReleaseAll(false) done\n");
+    DBG("[MaxPane] onAtExit: ReleaseAll(false) done\n");
   }
 }
 
 // Used by project_state.cpp to access current container for save
-ReDockItContainer* GetContainer() { return g_container.get(); }
+MaxPaneContainer* GetContainer() { return g_container.get(); }
 
 // One-shot timer: fired by ProcessExtensionLine when RPP state arrives.
 // Creates the container on next main-loop tick (safe context for UI creation).
-// Project RPP state always takes priority — if a project defines a ReDockIt layout,
+// Project RPP state always takes priority — if a project defines a MaxPane layout,
 // load it regardless of was_visible (the project defines the intent).
 static void rppReadyTimerFunc()
 {
@@ -74,11 +74,11 @@ static void rppReadyTimerFunc()
 
   if (!g_pendingProjectState.valid) return;  // already consumed
 
-  DBG("[ReDockIt] rppReadyTimer: RPP state available (%d lines), ensuring container\n",
+  DBG("[MaxPane] rppReadyTimer: RPP state available (%d lines), ensuring container\n",
       g_pendingProjectState.lineCount);
 
   if (!g_container) {
-    g_container = std::make_unique<ReDockItContainer>();
+    g_container = std::make_unique<MaxPaneContainer>();
   }
   if (!g_container->GetHwnd()) {
     g_container->Create();  // Create() → LoadState() consumes pending RPP data
@@ -86,7 +86,7 @@ static void rppReadyTimerFunc()
   // If container already has hwnd, its OnTimer will pick up the pending RPP state
 }
 
-// Called from ProcessExtensionLine (project_state.cpp) when <REDOCKIT_STATE> is parsed.
+// Called from ProcessExtensionLine (project_state.cpp) when <MAXPANE_STATE> is parsed.
 // Defers container creation to next main-loop tick via one-shot timer.
 void OnRppStateReady()
 {
@@ -104,16 +104,16 @@ static void startupTimerFunc()
   g_startupComplete = true;
 
   // Only auto-open if enabled AND was visible when REAPER last closed.
-  // If user explicitly closed ReDockIt ([x]), was_visible="0" → don't reopen.
+  // If user explicitly closed MaxPane ([x]), was_visible="0" → don't reopen.
   // If the project has RPP state, rppReadyTimerFunc will handle it separately.
   bool wasVisible = true;
   if (g_GetExtState) {
-    const char* vis = g_GetExtState("ReDockIt_cpp", "was_visible");
+    const char* vis = g_GetExtState("MaxPane_cpp", "was_visible");
     if (vis && vis[0] == '0') wasVisible = false;
   }
   if (IsAutoOpenEnabled() && wasVisible) {
     if (!g_container) {
-      g_container = std::make_unique<ReDockItContainer>();
+      g_container = std::make_unique<MaxPaneContainer>();
     }
     if (!g_container->GetHwnd()) {
       g_container->Create();
@@ -126,23 +126,23 @@ static bool hookCommandProc(int command, int flag)
   // Intercept Quit (File→Quit on Windows/Linux, also macOS File→Quit menu).
   // onAtExit handles the actual cleanup; this is a backup that fires earlier.
   if (command == 40004 && g_container && g_container->GetHwnd()) {
-    DBG("[ReDockIt] hookCommand 40004: intercepted Quit\n");
+    DBG("[MaxPane] hookCommand 40004: intercepted Quit\n");
     // onAtExit will handle saving captured_actions and release
     return false;  // let REAPER continue with quit
   }
 
   if (command == g_cmdId) {
     // During startup, REAPER's docker system restores docked windows by calling this hook.
-    // Only restore if ReDockIT was visible when REAPER last closed.
+    // Only restore if MaxPane was visible when REAPER last closed.
     if (!g_startupComplete && g_GetExtState) {
-      const char* vis = g_GetExtState("ReDockIt_cpp", "was_visible");
+      const char* vis = g_GetExtState("MaxPane_cpp", "was_visible");
       if (vis && vis[0] == '0') {
-        return true;  // User closed ReDockIT before last exit — don't restore
+        return true;  // User closed MaxPane before last exit — don't restore
       }
     }
 
     if (!g_container) {
-      g_container = std::make_unique<ReDockItContainer>();
+      g_container = std::make_unique<MaxPaneContainer>();
     }
     if (!g_container->GetHwnd()) {
       g_container->Create();
@@ -172,7 +172,7 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
     if (g_container) {
       // Save visibility state before shutdown — if open, mark for restore on next start
       if (g_SetExtState) {
-        g_SetExtState("ReDockIt_cpp", "was_visible",
+        g_SetExtState("MaxPane_cpp", "was_visible",
                        g_container->IsVisible() ? "1" : "0", true);
       }
       g_container->Shutdown();
@@ -204,10 +204,10 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
   g_SetProjExtState = SetProjExtState;
   g_MarkProjectDirty = MarkProjectDirty;
 
-  g_cmdId = rec->Register("command_id", (void*)"ReDockIt_OpenContainer");
+  g_cmdId = rec->Register("command_id", (void*)"MaxPane_OpenContainer");
   if (!g_cmdId) return 0;
 
-  static gaccel_register_t accel = {{0, 0, 0}, "ReDockIt: Open Container"};
+  static gaccel_register_t accel = {{0, 0, 0}, "MaxPane: Open Container"};
   accel.accel.cmd = static_cast<unsigned short>(g_cmdId);
   rec->Register("gaccel", &accel);
   rec->Register("hookcommand", (void*)hookCommandProc);

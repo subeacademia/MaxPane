@@ -43,7 +43,7 @@ void CaptureQueue::EnqueueKnown(int paneId, int knownIdx, bool deferAction)
     if (g_GetToggleCommandState) {
       int state = g_GetToggleCommandState(def.toggleActionId);
       alreadyOpen = (state == 1);
-      DBG("[ReDockIt] CaptureQueue: toggle state for '%s' (action %d) = %d\n",
+      DBG("[MaxPane] CaptureQueue: toggle state for '%s' (action %d) = %d\n",
           def.name, def.toggleActionId, state);
     }
     if (!alreadyOpen) {
@@ -52,7 +52,7 @@ void CaptureQueue::EnqueueKnown(int paneId, int knownIdx, bool deferAction)
   }
 
   m_count++;
-  DBG("[ReDockIt] CaptureQueue: enqueued known '%s' for pane %d (count=%d, deferred=%d)\n",
+  DBG("[MaxPane] CaptureQueue: enqueued known '%s' for pane %d (count=%d, deferred=%d)\n",
       def.name, paneId, m_count, deferAction);
 }
 
@@ -86,7 +86,7 @@ void CaptureQueue::EnqueueArbitrary(int paneId, const char* name, int toggleActi
   }
 
   m_count++;
-  DBG("[ReDockIt] CaptureQueue: enqueued arbitrary '%s' action=%d cmd='%s' maxRetries=%d for pane %d (count=%d, deferred=%d)\n",
+  DBG("[MaxPane] CaptureQueue: enqueued arbitrary '%s' action=%d cmd='%s' maxRetries=%d for pane %d (count=%d, deferred=%d)\n",
       name, toggleAction, pc.actionCommand, pc.maxRetries, paneId, m_count, deferAction);
 }
 
@@ -126,7 +126,7 @@ bool CaptureQueue::Tick(HWND containerHwnd, WindowManager& winMgr)
           alreadyOpen = (state == 1);
         }
         if (!alreadyOpen) {
-          DBG("[ReDockIt] CaptureQueue: firing deferred action for '%s' (action %d)\n",
+          DBG("[MaxPane] CaptureQueue: firing deferred action for '%s' (action %d)\n",
               pc.displayName, pc.toggleAction);
           g_Main_OnCommand(pc.toggleAction, 0);
         }
@@ -157,17 +157,17 @@ bool CaptureQueue::Tick(HWND containerHwnd, WindowManager& winMgr)
             // Dump all windows once to see if dock frame exists anywhere
             WindowManager::DumpAllWindowTitles(pc.displayName);
           }
-          DBG("[ReDockIt] CaptureQueue: found inner '%s' hwnd=%p but no dock frame yet, waiting (retry=%d)\n",
+          DBG("[MaxPane] CaptureQueue: found inner '%s' hwnd=%p but no dock frame yet, waiting (retry=%d)\n",
               pc.displayName, (void*)found, pc.retryCount);
           continue;
         }
         if (!foundIsDockFrame) {
-          DBG("[ReDockIt] CaptureQueue: no dock frame appeared for '%s' after %d retries, using inner window\n",
+          DBG("[MaxPane] CaptureQueue: no dock frame appeared for '%s' after %d retries, using inner window\n",
               pc.displayName, pc.retryCount);
         }
       }
 
-      DBG("[ReDockIt] CaptureQueue: FOUND '%s' hwnd=%p retry=%d, attempting capture (arb=%d action=%d cmd='%s')\n",
+      DBG("[MaxPane] CaptureQueue: FOUND '%s' hwnd=%p retry=%d, attempting capture (arb=%d action=%d cmd='%s')\n",
           pc.displayName, (void*)found, pc.retryCount, pc.isArbitrary, pc.toggleAction, pc.actionCommand);
       bool captured = false;
       if (pc.isArbitrary) {
@@ -178,16 +178,16 @@ bool CaptureQueue::Tick(HWND containerHwnd, WindowManager& winMgr)
       }
 
       if (captured) {
-        DBG("[ReDockIt] CaptureQueue: SUCCESS captured '%s' into pane %d after %d retries\n",
+        DBG("[MaxPane] CaptureQueue: SUCCESS captured '%s' into pane %d after %d retries\n",
             pc.displayName, pc.paneId, pc.retryCount);
         anyCaptured = true;
       } else {
-        DBG("[ReDockIt] CaptureQueue: CAPTURE FAILED for '%s' hwnd=%p (already captured or pane full?)\n",
+        DBG("[MaxPane] CaptureQueue: CAPTURE FAILED for '%s' hwnd=%p (already captured or pane full?)\n",
             pc.displayName, (void*)found);
       }
       Remove(i);
     } else if (pc.retryCount >= pc.maxRetries) {
-      DBG("[ReDockIt] CaptureQueue: FAILED '%s' after %d retries\n",
+      DBG("[MaxPane] CaptureQueue: FAILED '%s' after %d retries\n",
           pc.displayName, pc.retryCount);
       // Diagnostic: dump all window titles to help discover actual title
       WindowManager::DumpAllWindowTitles(pc.displayName);

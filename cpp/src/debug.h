@@ -1,12 +1,12 @@
 #pragma once
 #include <cstdio>
 
-#ifdef REDOCKIT_DEBUG
+#ifdef MAXPANE_DEBUG
 static FILE* dbgFile()
 {
   static FILE* f = nullptr;
   if (!f) {
-    f = fopen("/tmp/redockit_debug.log", "a");
+    f = fopen("/tmp/maxpane_debug.log", "a");
     if (f) setbuf(f, nullptr);
   }
   return f;

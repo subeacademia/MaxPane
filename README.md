@@ -1,9 +1,9 @@
-# ReDockIT
+# MaxPane
 
 **Nested docker layouts for REAPER** — a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.
 
 <!-- TODO: Replace with actual screenshot/GIF after recording -->
-<!-- ![ReDockIT Demo](docs/images/redockit-demo.gif) -->
+<!-- ![MaxPane Demo](docs/images/redockit-demo.gif) -->
 
 > *Capture any REAPER window — Media Explorer, FX Browser, Mixer, Actions, or even ReaImGui scripts — into a single tiling container with resizable split panes and tabbed panels.*
 
@@ -20,9 +20,9 @@
 - **Tab colors** — Color-code tabs with 8 palette colors for visual organization.
 - **Layout presets** — Quick-start with 5 built-in layouts: Two Columns, Left + Right Split, Three Columns, 2x2 Grid, Top + Bottom Split.
 - **Hover highlights** — Visual feedback on splitter bars and tabs when hovered.
-- **Per-project state** — Layout is saved inside each .RPP project file, so different projects can have different ReDockIT configurations.
+- **Per-project state** — Layout is saved inside each .RPP project file, so different projects can have different MaxPane configurations.
 - **Persistent state** — Layout, captured windows, favorites, and workspaces survive REAPER restarts.
-- **Auto-open on startup** — Optionally restore ReDockIT automatically when REAPER launches.
+- **Auto-open on startup** — Optionally restore MaxPane automatically when REAPER launches.
 - **Dockable** — The container itself docks into REAPER's native docker system.
 - **Zero dependencies** — Pure C++ extension using REAPER SDK + WDL/SWELL. No scripts, no ReaImGui, no js_ReaScriptAPI required.
 
@@ -44,16 +44,16 @@
 1. In REAPER, go to **Extensions > ReaPack > Import repositories...**
 2. Paste this URL:
    ```
-   https://github.com/b4s1c/ReDockIT/raw/main/index.xml
+   https://github.com/b4s1c/MaxPane/raw/main/index.xml
    ```
-3. Go to **Extensions > ReaPack > Browse packages**, search for **ReDockIT**.
+3. Go to **Extensions > ReaPack > Browse packages**, search for **MaxPane**.
 4. Right-click > **Install**, then restart REAPER.
 
 ReaPack will automatically notify you of future updates.
 
 ### Manual install
 
-1. Download `reaper_redockit.dylib` (macOS) from the [Releases](../../releases) page.
+1. Download `reaper_maxpane.dylib` (macOS) from the [Releases](../../releases) page.
 2. Copy it to your REAPER resource path:
 
 | Platform | Path |
@@ -63,7 +63,7 @@ ReaPack will automatically notify you of future updates.
 | **Linux** | `~/.config/REAPER/UserPlugins/` |
 
 3. Restart REAPER.
-4. Open via **Actions > ReDockIt: Open Container**, or assign a keyboard shortcut.
+4. Open via **Actions > MaxPane: Open Container**, or assign a keyboard shortcut.
 
 ### Build from source
 
@@ -71,7 +71,7 @@ See [Building](#building) below.
 
 ## Usage
 
-1. **Open ReDockIT** — Run the action "ReDockIt: Open Container" from REAPER's Actions menu.
+1. **Open MaxPane** — Run the action "MaxPane: Open Container" from REAPER's Actions menu.
 2. **Right-click** any pane header, or click the **▼ button** at the right of any tab bar, to open the pane context menu.
 3. **Choose a window** from the Known Windows list, or browse Open Windows for any visible REAPER window.
 4. **Split panes** via the context menu (Split Left/Right or Split Top/Bottom).
@@ -101,7 +101,7 @@ See [Building](#building) below.
 cd cpp/build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make
-cp reaper_redockit.dylib ~/Library/Application\ Support/REAPER/UserPlugins/
+cp reaper_maxpane.dylib ~/Library/Application\ Support/REAPER/UserPlugins/
 ```
 
 ### Compile and install (Linux)
@@ -110,7 +110,7 @@ cp reaper_redockit.dylib ~/Library/Application\ Support/REAPER/UserPlugins/
 cd cpp/build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make
-cp reaper_redockit.so ~/.config/REAPER/UserPlugins/
+cp reaper_maxpane.so ~/.config/REAPER/UserPlugins/
 ```
 
 ### Compile and install (Windows)
@@ -119,12 +119,12 @@ cp reaper_redockit.so ~/.config/REAPER/UserPlugins/
 cd cpp/build
 cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
-copy Release\reaper_redockit.dll "%APPDATA%\REAPER\UserPlugins\"
+copy Release\reaper_maxpane.dll "%APPDATA%\REAPER\UserPlugins\"
 ```
 
 ### Debug build
 
-Debug builds enable verbose logging to `/tmp/redockit_debug.log`:
+Debug builds enable verbose logging to `/tmp/maxpane_debug.log`:
 
 ```bash
 cmake .. -DCMAKE_BUILD_TYPE=Debug

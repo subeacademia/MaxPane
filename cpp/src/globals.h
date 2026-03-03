@@ -103,7 +103,7 @@ inline const char* GetActionCommandString(int actionId, char* buf, int bufSize)
 inline bool IsAutoOpenEnabled()
 {
   if (!g_GetExtState) return true;
-  const char* val = g_GetExtState("ReDockIt_cpp", "auto_open");
+  const char* val = g_GetExtState("MaxPane_cpp", "auto_open");
   if (val && val[0] == '0') return false;
   return true;
 }
@@ -111,6 +111,6 @@ inline bool IsAutoOpenEnabled()
 inline void SetAutoOpenEnabled(bool enabled)
 {
   if (g_SetExtState) {
-    g_SetExtState("ReDockIt_cpp", "auto_open", enabled ? "1" : "0", true);
+    g_SetExtState("MaxPane_cpp", "auto_open", enabled ? "1" : "0", true);
   }
 }

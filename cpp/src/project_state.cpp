@@ -11,7 +11,7 @@ PendingProjectState g_pendingProjectState = {};
 
 // Forward declarations — defined in main.cpp
 #include "container.h"
-extern ReDockItContainer* GetContainer();
+extern MaxPaneContainer* GetContainer();
 extern void OnRppStateReady();
 
 // =========================================================================
@@ -27,18 +27,18 @@ void OnBeginLoadProjectState(bool isUndo, project_config_extension_t* /*reg*/)
   // Our chunk may be parsed early, then a later OnBeginLoadProjectState would wipe it
   // before LoadState() gets a chance to consume it.
   if (g_pendingProjectState.valid) {
-    DBG("[ReDockIt] OnBeginLoadProjectState: skipping reset — valid data not yet consumed (%d lines)\n",
+    DBG("[MaxPane] OnBeginLoadProjectState: skipping reset — valid data not yet consumed (%d lines)\n",
         g_pendingProjectState.lineCount);
     return;
   }
 
   g_pendingProjectState.reading = false;
   g_pendingProjectState.lineCount = 0;
-  DBG("[ReDockIt] OnBeginLoadProjectState: buffer reset\n");
+  DBG("[MaxPane] OnBeginLoadProjectState: buffer reset\n");
 }
 
 // =========================================================================
-// ProcessExtensionLine — read <REDOCKIT_STATE> chunk from RPP
+// ProcessExtensionLine — read <MAXPANE_STATE> chunk from RPP
 // =========================================================================
 
 bool OnProcessExtensionLine(const char* line, ProjectStateContext* ctx,
@@ -47,8 +47,8 @@ bool OnProcessExtensionLine(const char* line, ProjectStateContext* ctx,
   if (isUndo) return false;
 
   // Check if this is our chunk opener
-  if (strcmp(line, "<REDOCKIT_STATE") == 0) {
-    DBG("[ReDockIt] ProcessExtensionLine: found <REDOCKIT_STATE>\n");
+  if (strcmp(line, "<MAXPANE_STATE") == 0) {
+    DBG("[MaxPane] ProcessExtensionLine: found <MAXPANE_STATE>\n");
     g_pendingProjectState.lineCount = 0;
     g_pendingProjectState.reading = true;
 
@@ -73,7 +73,7 @@ bool OnProcessExtensionLine(const char* line, ProjectStateContext* ctx,
 
     g_pendingProjectState.reading = false;
     g_pendingProjectState.valid = (g_pendingProjectState.lineCount > 0);
-    DBG("[ReDockIt] ProcessExtensionLine: read %d lines, valid=%d\n",
+    DBG("[MaxPane] ProcessExtensionLine: read %d lines, valid=%d\n",
         g_pendingProjectState.lineCount, g_pendingProjectState.valid);
 
     // Notify main.cpp — it will create the container on the next main-loop tick
@@ -89,7 +89,7 @@ bool OnProcessExtensionLine(const char* line, ProjectStateContext* ctx,
 }
 
 // =========================================================================
-// SaveExtensionConfig — write <REDOCKIT_STATE> chunk to RPP
+// SaveExtensionConfig — write <MAXPANE_STATE> chunk to RPP
 // =========================================================================
 
 void OnSaveExtensionConfig(ProjectStateContext* ctx, bool isUndo,
@@ -106,7 +106,7 @@ void OnSaveExtensionConfig(ProjectStateContext* ctx, bool isUndo,
 
   // Get the current container — we need its tree and winMgr
   // Access via the extern function
-  ReDockItContainer* container = GetContainer();
+  MaxPaneContainer* container = GetContainer();
   if (!container || !container->GetHwnd()) return;
 
   const SplitTree& tree = container->GetTree();
@@ -124,7 +124,7 @@ void OnSaveExtensionConfig(ProjectStateContext* ctx, bool isUndo,
   bool corrupt = false;
   for (int i = 0; i < nodeCount; i++) {
     if (snap[i].type == NODE_BRANCH && snap[i].childA == snap[i].childB) {
-      DBG("[ReDockIt] SaveExtensionConfig: corrupt tree node %d, skipping\n", i);
+      DBG("[MaxPane] SaveExtensionConfig: corrupt tree node %d, skipping\n", i);
       corrupt = true;
     }
   }
@@ -177,12 +177,12 @@ void OnSaveExtensionConfig(ProjectStateContext* ctx, bool isUndo,
   }
 
   // Now write the collected key-value pairs as RPP chunk lines
-  ctx->AddLine("<REDOCKIT_STATE");
-  DBG("[ReDockIt] SaveExtensionConfig: writing %d key-value lines\n", writeAcc.GetCount());
+  ctx->AddLine("<MAXPANE_STATE");
+  DBG("[MaxPane] SaveExtensionConfig: writing %d key-value lines\n", writeAcc.GetCount());
   for (int i = 0; i < writeAcc.GetCount(); i++) {
     ctx->AddLine("%s %s", writeAcc.GetKey(i), writeAcc.GetValue(i));
   }
   ctx->AddLine(">");
 
-  DBG("[ReDockIt] SaveExtensionConfig: wrote %d lines\n", writeAcc.GetCount());
+  DBG("[MaxPane] SaveExtensionConfig: wrote %d lines\n", writeAcc.GetCount());
 }

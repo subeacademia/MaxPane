@@ -14,7 +14,7 @@
 
 struct PendingProjectState {
   bool valid;
-  bool reading;  // true while inside <REDOCKIT_STATE> chunk
+  bool reading;  // true while inside <MAXPANE_STATE> chunk
   char lines[RPP_MAX_LINES][RPP_MAX_LINE_LEN];
   int lineCount;
 };

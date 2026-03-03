@@ -1,4 +1,4 @@
-// container_paint.cpp — Rendering methods for ReDockItContainer
+// container_paint.cpp — Rendering methods for MaxPaneContainer
 // (OnPaint, DrawTabBar)
 #include "container.h"
 #include "config.h"
@@ -7,7 +7,7 @@
 // OnPaint
 // =========================================================================
 
-void ReDockItContainer::OnPaint(HDC hdc)
+void MaxPaneContainer::OnPaint(HDC hdc)
 {
   RECT rc;
   GetClientRect(m_hwnd, &rc);
@@ -121,7 +121,7 @@ void ReDockItContainer::OnPaint(HDC hdc)
 // DrawTabBar
 // =========================================================================
 
-void ReDockItContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
+void MaxPaneContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
 {
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || ps->tabCount == 0) return;

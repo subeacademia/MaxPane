@@ -1,4 +1,4 @@
-# ReDockIT — Finalny raport audytu produkcyjnego (rev.3)
+# MaxPane — Finalny raport audytu produkcyjnego (rev.3)
 
 **Data:** 2026-03-02
 **Wersja:** 1.1.0 (commit `be84959`)
@@ -110,7 +110,7 @@ Dotyczy trzech miejsc: `CloseTab` (linia 449), `MoveTab` (linia 503), `CheckAliv
 | **Kategoria** | 10. Spójność |
 | **Plik** | `favorites_manager.cpp:8` |
 
-`static const char* FAV_SECTION = "ReDockIt_cpp"` — identyczne z `EXT_SECTION` w `config.h`.
+`static const char* FAV_SECTION = "MaxPane_cpp"` — identyczne z `EXT_SECTION` w `config.h`.
 
 **Fix:** Usunąć `FAV_SECTION`, użyć `EXT_SECTION` z `config.h`.
 
@@ -551,7 +551,7 @@ ReaImGui scripts (np. ReaMD) tworzą dwa okna: **inner window** (`"Title"` — p
 | Dock-frame-only | Brak problemu | FindReaperWindow preferuje dock frame | ✅ |
 | Delayed dock-frame (>1.5s) | Capture inner, potem dock frame pojawia się floating | CaptureQueue timeout → fallback | ⚠️ Rzadkie, ale możliwe z wolnymi skryptami |
 | Title mismatch (script zmienia tytuł) | Nie znaleziony przy restore | Puste pane, brak crashu | ⚠️ Akceptowalne |
-| Restart restore | REAPER re-tworzy okna, ReDockIT recapture via saved `actionCommand` | Startup timer → enqueue z `deferAction=true` | ✅ Działa poprawnie |
+| Restart restore | REAPER re-tworzy okna, MaxPane recapture via saved `actionCommand` | Startup timer → enqueue z `deferAction=true` | ✅ Działa poprawnie |
 | Docker parentage zmiana (REAPER update) | FindReaperWindow może nie znaleźć | 5-stage search pokrywa top/child/grandchild | ⚠️ Zależy od REAPER internals |
 
 ### Werdykt

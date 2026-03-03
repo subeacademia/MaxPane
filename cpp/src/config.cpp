@@ -1,6 +1,6 @@
 #include "config.h"
 
-const char* const EXT_SECTION = "ReDockIt_cpp";
+const char* const EXT_SECTION = "MaxPane_cpp";
 
 const TabColor TAB_COLORS[] = {
   {"Default",  0,   0,   0  },  // 0: no color

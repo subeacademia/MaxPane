@@ -1,4 +1,4 @@
-// container_input.cpp — Input handling for ReDockItContainer
+// container_input.cpp — Input handling for MaxPaneContainer
 // (mouse events, tab drag/drop, hit testing, resize)
 #include "container.h"
 #include "config.h"
@@ -7,7 +7,7 @@
 // Helpers
 // =========================================================================
 
-int ReDockItContainer::PaneAtPoint(int x, int y) const
+int MaxPaneContainer::PaneAtPoint(int x, int y) const
 {
   int nodeIdx = m_tree.LeafAtPoint(x, y);
   if (nodeIdx < 0) return -1;
@@ -18,7 +18,7 @@ int ReDockItContainer::PaneAtPoint(int x, int y) const
 // Tab bar layout calculation (shared by draw, hit-test, close-button)
 // =========================================================================
 
-ReDockItContainer::TabBarLayout ReDockItContainer::CalcTabBarLayout(int paneId) const
+MaxPaneContainer::TabBarLayout MaxPaneContainer::CalcTabBarLayout(int paneId) const
 {
   TabBarLayout lay = {};
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
@@ -37,7 +37,7 @@ ReDockItContainer::TabBarLayout ReDockItContainer::CalcTabBarLayout(int paneId) 
   return lay;
 }
 
-RECT ReDockItContainer::GetTabRect(int paneId, int tabIdx) const
+RECT MaxPaneContainer::GetTabRect(int paneId, int tabIdx) const
 {
   const RECT& r = m_tree.GetPaneRect(paneId);
   int tabBarTop = r.top;
@@ -57,7 +57,7 @@ RECT ReDockItContainer::GetTabRect(int paneId, int tabIdx) const
 // =========================================================================
 
 // Returns: >=0 tab index, -1 miss, -2 menu button, -3 left arrow, -4 right arrow
-int ReDockItContainer::TabHitTest(int paneId, int x, int y) const
+int MaxPaneContainer::TabHitTest(int paneId, int x, int y) const
 {
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || ps->tabCount == 0) return -1;
@@ -82,7 +82,7 @@ int ReDockItContainer::TabHitTest(int paneId, int x, int y) const
   return tabIdx;
 }
 
-bool ReDockItContainer::IsOnTabCloseButton(int paneId, int tabIndex, int x, int y) const
+bool MaxPaneContainer::IsOnTabCloseButton(int paneId, int tabIndex, int x, int y) const
 {
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || tabIndex < 0 || tabIndex >= ps->tabCount) return false;
@@ -104,7 +104,7 @@ bool ReDockItContainer::IsOnTabCloseButton(int paneId, int tabIndex, int x, int 
 // Drag and drop
 // =========================================================================
 
-void ReDockItContainer::StartTabDrag(int paneId, int tabIndex, int x, int y)
+void MaxPaneContainer::StartTabDrag(int paneId, int tabIndex, int x, int y)
 {
   m_dragState.active = false;
   m_dragState.sourcePaneId = paneId;
@@ -127,7 +127,7 @@ static void ExpandRect(RECT& dst, const RECT& src)
   if (src.bottom > dst.bottom) dst.bottom = src.bottom;
 }
 
-void ReDockItContainer::UpdateTabDrag(int x, int y)
+void MaxPaneContainer::UpdateTabDrag(int x, int y)
 {
   if (!m_dragState.dragStarted) {
     int dx = x - m_dragState.startPt.x;
@@ -169,7 +169,7 @@ void ReDockItContainer::UpdateTabDrag(int x, int y)
   }
 }
 
-void ReDockItContainer::EndTabDrag(int x, int y)
+void MaxPaneContainer::EndTabDrag(int x, int y)
 {
   if (!m_dragState.active || !m_dragState.dragStarted) {
     memset(&m_dragState, 0, sizeof(m_dragState));
@@ -215,7 +215,7 @@ void ReDockItContainer::EndTabDrag(int x, int y)
   else InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
-void ReDockItContainer::CancelTabDrag()
+void MaxPaneContainer::CancelTabDrag()
 {
   int savedSrc = m_dragState.sourcePaneId;
   int savedHL  = m_dragState.highlightPaneId;
@@ -241,14 +241,14 @@ void ReDockItContainer::CancelTabDrag()
 // Event handlers
 // =========================================================================
 
-void ReDockItContainer::OnSize(int cx, int cy)
+void MaxPaneContainer::OnSize(int cx, int cy)
 {
   m_tree.Recalculate(cx, cy);
   m_winMgr.RepositionAll(m_tree);
   InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
-void ReDockItContainer::OnMouseMove(int x, int y)
+void MaxPaneContainer::OnMouseMove(int x, int y)
 {
   if (m_dragState.sourcePaneId >= 0) {
     UpdateTabDrag(x, y);
@@ -320,7 +320,7 @@ void ReDockItContainer::OnMouseMove(int x, int y)
   }
 }
 
-void ReDockItContainer::OnLButtonUp(int x, int y)
+void MaxPaneContainer::OnLButtonUp(int x, int y)
 {
   if (m_dragState.sourcePaneId >= 0) {
     EndTabDrag(x, y);
