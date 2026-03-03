@@ -12,17 +12,6 @@
 #include <cstring>
 #include <cstdlib>
 
-// Expand dirty rect to include src (in-place union, handles empty dst/src)
-static void ExpandRect(RECT& dst, const RECT& src)
-{
-  if (src.right <= src.left || src.bottom <= src.top) return;
-  if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
-  if (src.left   < dst.left)   dst.left   = src.left;
-  if (src.top    < dst.top)    dst.top    = src.top;
-  if (src.right  > dst.right)  dst.right  = src.right;
-  if (src.bottom > dst.bottom) dst.bottom = src.bottom;
-}
-
 // =========================================================================
 // Constructor / lifecycle
 // =========================================================================
@@ -45,11 +34,16 @@ MaxPaneContainer::MaxPaneContainer()
   m_dragState.highlightPaneId = -1;
   m_winMgr.Init();
 
-  // Create cached GDI brushes for static colors
+  // Create cached GDI objects for static colors
   m_brushTabBarBg = CreateSolidBrush(COLOR_TAB_BAR_BG);
   m_brushTabActive = CreateSolidBrush(COLOR_TAB_ACTIVE_BG);
   m_brushTabInactive = CreateSolidBrush(COLOR_TAB_INACTIVE_BG);
   m_brushEmptyHeader = CreateSolidBrush(COLOR_EMPTY_HEADER_BG);
+  m_brushPaneBg = CreateSolidBrush(COLOR_PANE_BG);
+  m_brushSplitter = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+  m_brushSplitterHover = CreateSolidBrush(COLOR_SPLITTER_HIGHLIGHT);
+  m_penTabSeparator = CreatePen(PS_SOLID, 1, COLOR_TAB_SEPARATOR);
+  m_penGridLine = CreatePen(PS_SOLID, 1, COLOR_PANE_GRID_LINE);
 }
 
 MaxPaneContainer::~MaxPaneContainer()
@@ -59,6 +53,11 @@ MaxPaneContainer::~MaxPaneContainer()
   SafeDeleteBrush(m_brushTabActive);
   SafeDeleteBrush(m_brushTabInactive);
   SafeDeleteBrush(m_brushEmptyHeader);
+  SafeDeleteBrush(m_brushPaneBg);
+  SafeDeleteBrush(m_brushSplitter);
+  SafeDeleteBrush(m_brushSplitterHover);
+  SafeDeletePen(m_penTabSeparator);
+  SafeDeletePen(m_penGridLine);
 }
 
 bool MaxPaneContainer::Create()
@@ -639,6 +638,9 @@ INT_PTR CALLBACK MaxPaneContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, L
       if (self) self->m_hwnd = hwnd;
       return 0;
     }
+
+    case WM_ERASEBKGND:
+      return 1;  // we paint everything in WM_PAINT
 
     case WM_SIZE: {
       if (self) {

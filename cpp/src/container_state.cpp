@@ -119,7 +119,7 @@ void MaxPaneContainer::LoadState()
     }
   } else {
     const char* presetStr = g_GetExtState(EXT_SECTION, "layout_preset");
-    int p = (presetStr && presetStr[0]) ? atoi(presetStr) : 0;
+    int p = (presetStr && presetStr[0]) ? safe_atoi_clamped(presetStr, 0, PRESET_COUNT - 1) : 0;
     if (p < 0 || p >= PRESET_COUNT) p = 0;
     m_tree.BuildPreset((LayoutPreset)p);
   }

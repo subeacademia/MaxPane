@@ -116,17 +116,6 @@ void MaxPaneContainer::StartTabDrag(int paneId, int tabIndex, int x, int y)
   SetCapture(m_hwnd);
 }
 
-// Expand dirty rect to include src (in-place union, handles empty dst/src)
-static void ExpandRect(RECT& dst, const RECT& src)
-{
-  if (src.right <= src.left || src.bottom <= src.top) return;  // src empty — skip
-  if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
-  if (src.left   < dst.left)   dst.left   = src.left;
-  if (src.top    < dst.top)    dst.top    = src.top;
-  if (src.right  > dst.right)  dst.right  = src.right;
-  if (src.bottom > dst.bottom) dst.bottom = src.bottom;
-}
-
 void MaxPaneContainer::UpdateTabDrag(int x, int y)
 {
   if (!m_dragState.dragStarted) {

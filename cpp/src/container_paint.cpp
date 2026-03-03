@@ -13,17 +13,13 @@ void MaxPaneContainer::OnPaint(HDC hdc)
   GetClientRect(m_hwnd, &rc);
 
   // Background
-  HBRUSH bgBrush = CreateSolidBrush(COLOR_PANE_BG);
-  FillRect(hdc, &rc, bgBrush);
-  DeleteObject(bgBrush);
+  FillRect(hdc, &rc, m_brushPaneBg);
 
   // Draw splitter bars
-  HBRUSH splitterBrush = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
-  HBRUSH hoverBrush = CreateSolidBrush(COLOR_SPLITTER_HIGHLIGHT);
   for (int i = 0; i < m_tree.GetBranchCount(); i++) {
     int branchIdx = m_tree.GetBranchList()[i];
     const SplitNode& n = m_tree.GetNode(branchIdx);
-    FillRect(hdc, &n.splitterRect, splitterBrush);
+    FillRect(hdc, &n.splitterRect, m_brushSplitter);
     if (branchIdx == m_hoverSplitter) {
       RECT hr = n.splitterRect;
       if (n.orient == SPLIT_VERTICAL) {
@@ -33,11 +29,9 @@ void MaxPaneContainer::OnPaint(HDC hdc)
         hr.top += SPLITTER_HIGHLIGHT_INSET;
         hr.bottom -= SPLITTER_HIGHLIGHT_INSET;
       }
-      FillRect(hdc, &hr, hoverBrush);
+      FillRect(hdc, &hr, m_brushSplitterHover);
     }
   }
-  DeleteObject(hoverBrush);
-  DeleteObject(splitterBrush);
 
   // Draw pane tab bars or empty headers
   for (int i = 0; i < m_tree.GetLeafCount(); i++) {
@@ -74,8 +68,7 @@ void MaxPaneContainer::OnPaint(HDC hdc)
 
       // Subtle diagonal lines in empty panes (45°, disappear when window is captured)
       {
-        HPEN gridPen = CreatePen(PS_SOLID, 1, COLOR_PANE_GRID_LINE);
-        HPEN oldPen  = (HPEN)SelectObject(hdc, gridPen);
+        HPEN oldPen = (HPEN)SelectObject(hdc, m_penGridLine);
 
         int cx = contentRect.left, cy = contentRect.top;
         int cw = contentRect.right - contentRect.left;
@@ -95,7 +88,6 @@ void MaxPaneContainer::OnPaint(HDC hdc)
         }
 
         SelectObject(hdc, oldPen);
-        DeleteObject(gridPen);
       }
 
       SetTextColor(hdc, RGB(80, 80, 80));
@@ -136,10 +128,7 @@ void MaxPaneContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
 
   // Draw tabs
   for (int t = 0; t < ps->tabCount; t++) {
-    int di = t;
-    if (t >= ps->tabCount) break;
-
-    int tabLeft = lay.tabAreaLeft + di * lay.tabWidth;
+    int tabLeft = lay.tabAreaLeft + t * lay.tabWidth;
     int tabRight = tabLeft + lay.tabWidth;
     if (tabRight > lay.tabAreaRight) tabRight = lay.tabAreaRight;
 
@@ -185,12 +174,10 @@ void MaxPaneContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
     DrawText(hdc, "x", 1, &closeRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
     if (t < ps->tabCount - 1) {
-      HPEN sepPen = CreatePen(PS_SOLID, 1, COLOR_TAB_SEPARATOR);
-      HPEN oldPen = (HPEN)SelectObject(hdc, sepPen);
+      HPEN oldPen = (HPEN)SelectObject(hdc, m_penTabSeparator);
       MoveToEx(hdc, tabRight, tabBarTop + 2, nullptr);
       LineTo(hdc, tabRight, tabBarBottom - 2);
       SelectObject(hdc, oldPen);
-      DeleteObject(sepPen);
     }
   }
 
@@ -204,12 +191,10 @@ void MaxPaneContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
       DeleteObject(hoverBrush);
     }
     // Separator line left of button
-    HPEN sepPen = CreatePen(PS_SOLID, 1, COLOR_TAB_SEPARATOR);
-    HPEN oldPen = (HPEN)SelectObject(hdc, sepPen);
+    HPEN oldPen = (HPEN)SelectObject(hdc, m_penTabSeparator);
     MoveToEx(hdc, paneRect.right - PANE_MENU_BTN_WIDTH, tabBarTop + 2, nullptr);
     LineTo(hdc, paneRect.right - PANE_MENU_BTN_WIDTH, tabBarBottom - 2);
     SelectObject(hdc, oldPen);
-    DeleteObject(sepPen);
 
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, menuBtnHover ? RGB(230, 230, 230) : RGB(190, 190, 190));

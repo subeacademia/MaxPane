@@ -19,6 +19,17 @@ struct DragState {
   bool dragStarted;
 };
 
+// Expand dirty rect to include src (in-place union, handles empty dst/src)
+inline void ExpandRect(RECT& dst, const RECT& src)
+{
+  if (src.right <= src.left || src.bottom <= src.top) return;
+  if (dst.right <= dst.left || dst.bottom <= dst.top) { dst = src; return; }
+  if (src.left   < dst.left)   dst.left   = src.left;
+  if (src.top    < dst.top)    dst.top    = src.top;
+  if (src.right  > dst.right)  dst.right  = src.right;
+  if (src.bottom > dst.bottom) dst.bottom = src.bottom;
+}
+
 struct PaneSnapshot;
 class CaptureQueue;
 class FavoritesManager;
@@ -68,14 +79,22 @@ private:
   int m_hoverTab;           // tab index under mouse, -1 when none; -2 = menu button
   bool m_pendingRppLoad;     // true if waiting for RPP state to become available
 
-  // GDI brush cache (created once in constructor, destroyed in destructor)
+  // GDI object cache (created once in constructor, destroyed in destructor)
   HBRUSH m_brushTabBarBg = nullptr;
   HBRUSH m_brushTabActive = nullptr;
   HBRUSH m_brushTabInactive = nullptr;
   HBRUSH m_brushEmptyHeader = nullptr;
+  HBRUSH m_brushPaneBg = nullptr;
+  HBRUSH m_brushSplitter = nullptr;
+  HBRUSH m_brushSplitterHover = nullptr;
+  HPEN   m_penTabSeparator = nullptr;
+  HPEN   m_penGridLine = nullptr;
 
   static void SafeDeleteBrush(HBRUSH& brush) {
     if (brush) { DeleteObject(brush); brush = nullptr; }
+  }
+  static void SafeDeletePen(HPEN& pen) {
+    if (pen) { DeleteObject(pen); pen = nullptr; }
   }
 
   void ApplyPaneState(const PaneSnapshot* panes, int maxPanes, bool deferActions);
