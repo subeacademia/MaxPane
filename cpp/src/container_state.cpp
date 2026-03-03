@@ -94,14 +94,18 @@ void MaxPaneContainer::LoadState()
             if (h && IsWindow(h) && IsWindowVisible(h)) {
               // Double toggle: open (0→1) then close (1→0) — updates wnd_vis
               g_Main_OnCommand(staleArr[i], 0);
-              int midState = g_GetToggleCommandState ? g_GetToggleCommandState(staleArr[i]) : -1;
               g_Main_OnCommand(staleArr[i], 0);
-              int endState = g_GetToggleCommandState ? g_GetToggleCommandState(staleArr[i]) : -1;
               // Safety: if REAPER used a different HWND, hide the original too
               bool stillVisible = (IsWindow(h) && IsWindowVisible(h));
               if (stillVisible) ShowWindow(h, SW_HIDE);
-              DBG("[MaxPane] LoadState: double-toggled state=0 action=%d — '%s' hwnd=%p mid=%d end=%d stillVis=%d\n",
-                  staleArr[i], searchTitle, (void*)h, midState, endState, stillVisible);
+#ifdef MAXPANE_DEBUG
+              {
+                int midState = g_GetToggleCommandState ? g_GetToggleCommandState(staleArr[i]) : -1;
+                int endState = g_GetToggleCommandState ? g_GetToggleCommandState(staleArr[i]) : -1;
+                DBG("[MaxPane] LoadState: double-toggled state=0 action=%d — '%s' hwnd=%p mid=%d end=%d stillVis=%d\n",
+                    staleArr[i], searchTitle, (void*)h, midState, endState, stillVisible);
+              }
+#endif
               handled = true;
             } else {
               DBG("[MaxPane] LoadState: state=0 action=%d — window '%s' not found/visible, deferring\n",
@@ -294,6 +298,7 @@ void MaxPaneContainer::LoadWorkspace(const char* name)
 
   DBG("[MaxPane] === LoadWorkspace '%s' BEGIN ===\n", name);
 
+#ifdef MAXPANE_DEBUG
   // --- Dump current state ---
   DBG("[MaxPane] LW: Current captured tabs:\n");
   for (int i = 0; i < MAX_PANES; i++) {
@@ -306,6 +311,7 @@ void MaxPaneContainer::LoadWorkspace(const char* name)
           ps->tabs[t].captured, (void*)ps->tabs[t].hwnd, ps->tabs[t].isArbitrary);
     }
   }
+#endif
 
   // --- Dump target workspace ---
   DBG("[MaxPane] LW: Target workspace '%s' tabs:\n", name);
