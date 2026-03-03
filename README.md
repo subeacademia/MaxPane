@@ -44,7 +44,7 @@
 1. In REAPER, go to **Extensions > ReaPack > Import repositories...**
 2. Paste this URL:
    ```
-   https://github.com/b451c/MaxPane/raw/main/index.xml
+   https://raw.githubusercontent.com/b451c/MaxPane/main/index.xml
    ```
 3. Go to **Extensions > ReaPack > Browse packages**, search for **MaxPane**.
 4. Right-click > **Install**, then restart REAPER.
