@@ -163,19 +163,6 @@ cpp/src/
 
 The extension works by reparenting REAPER windows (via `SetParent`) into a custom container dialog. The container uses a binary split tree for layout, with each leaf node representing a pane that holds tabbed windows. Global state is persisted via REAPER's ExtState API; per-project state is saved inside `.RPP` files via `project_config_extension_t`.
 
-## Recording screenshots & GIFs
-
-To create visuals for this README and forum posts:
-
-1. **[LICEcap](https://www.cockos.com/licecap/)** (by Cockos, the makers of REAPER) — Record animated GIFs directly. Ideal for a 5-second demo showing split/capture/drag workflow.
-2. **Screenshots** — macOS: `Cmd+Shift+4` to select a region. Capture:
-   - The full container with a multi-pane layout
-   - Tab bar with colored tabs
-   - Context menu open
-   - Workspace save/load in action
-
-Place images in `docs/images/` and update the image references at the top of this README.
-
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -194,6 +181,7 @@ If you find MaxPane useful, consider supporting its development:
 
 ## Links
 
+- **Forum thread** — https://forum.cockos.com/showthread.php?t=307267
 - **REAPER** — https://www.reaper.fm
 - **ReaPack** — https://reapack.com
 - **REAPER SDK** — https://github.com/justinfrankel/reaper-sdk
