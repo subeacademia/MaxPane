@@ -4,6 +4,21 @@ All notable changes to MaxPane will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-03-03
+
+### Changed
+- **Renamed project**: ReDockIt → **MaxPane** — all source, docs, CMake, actions, ExtState keys, RPP chunk tags updated.
+
+### Added
+- **Diagonal grid lines** in empty panes — subtle 45° lines on the pane background, disappear when a window is captured.
+
+### Fixed
+- **Pane background color** — captured windows (WS_CHILD) have no own background and inherited the parent's dark color. Fixed by setting `COLOR_PANE_BG = RGB(172,172,172)` as a neutral light gray.
+- **DoRelease toggle for Actions window** — closing the Actions tab via [x] left REAPER's toggle state on (checkmark stayed). Root cause: SWELL destroys the NSWindow when a window becomes WS_CHILD, so `g_Main_OnCommand` couldn't find the window and opened a new one. Fix: `SetParent(nullptr)` to restore the NSWindow before toggling.
+- **Hint text color** — "Click header to assign a window" was white on light gray after the background color fix. Changed to `RGB(80,80,80)`.
+
+---
+
 ## [1.2.0] - 2026-03-02
 
 ### Added
