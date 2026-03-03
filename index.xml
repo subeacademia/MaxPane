@@ -4,29 +4,33 @@
     <reapack name="reaper_maxpane" type="extension" desc="MaxPane">
       <metadata>
         <link rel="website">https://github.com/b451c/MaxPane</link>
-        <link rel="screenshot" href="https://raw.githubusercontent.com/b451c/MaxPane/main/docs/images/maxpane-hero.png">MaxPane overview</link>
-        <link rel="screenshot" href="https://raw.githubusercontent.com/b451c/MaxPane/main/docs/images/maxpane-layout.png">Full layout view</link>
-        <link rel="donation" href="https://ko-fi.com/quickmd">Ko-fi</link>
+        <link rel="screenshot">https://raw.githubusercontent.com/b451c/MaxPane/main/docs/images/maxpane-hero.png</link>
+        <link rel="screenshot">https://raw.githubusercontent.com/b451c/MaxPane/main/docs/images/maxpane-layout.png</link>
+        <link rel="donation">https://ko-fi.com/quickmd</link>
         <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
 \widowctrl\hyphauto
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 MaxPane\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \b Nested docker layouts for REAPER\b0  \endash  a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs28 Features\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Flexible split layouts (up to 16 panes)\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Tabbed windows with drag-and-drop between panes\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  14 known REAPER windows with one-click capture\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Arbitrary window capture (including ReaImGui scripts)\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Named workspaces (save/restore complete layouts)\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Favorites, tab colors, layout presets\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Per-project state saved inside .RPP files\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Full state persistence across REAPER restarts\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Dockable into REAPER's native docker system\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \endash  Zero dependencies \endash  pure C++ extension\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs28 Installation\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 Install via ReaPack or download from GitHub Releases. Requires REAPER 7.0+.\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \fs18 MIT License \endash  Copyright (c) 2025\endash 2026 b451c\par}
-}]]></description>
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 MaxPane - Nested Docker Layouts for REAPER\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 A native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Flexible split layouts (up to 16 panes)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Tabbed windows with drag-and-drop between panes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 14 known REAPER windows with one-click capture\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Arbitrary window capture (including ReaImGui scripts)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Named workspaces (save/restore complete layouts)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Favorites, tab colors, layout presets\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Per-project state saved inside .RPP files\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Full state persistence across REAPER restarts\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dockable into REAPER's native docker system\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Zero dependencies - pure C++ extension\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Requirements\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab REAPER 7.0+\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab macOS (arm64), Windows (x64), Linux (x86_64)\sa180\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 MIT License | https://github.com/b451c/MaxPane\par}
+}
+]]></description>
       </metadata>
 
       <version name="1.3.0" author="b451c" time="2026-03-03T00:00:00Z">
