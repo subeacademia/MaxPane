@@ -7,9 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [1.5.2] - 2026-03-04
 
 ### Fixed
-- **Workspace switching: stale windows floating after restart** — Windows from previous workspaces (toolbars, Actions, FX Browser, ReaImGui scripts) no longer appear as floating windows after switching workspaces and restarting REAPER. Implements state-specific cleanup: double-toggle for state=0 windows, ShowWindow fallback for stubborn HWNDs, and skip-toggle for script actions (state=-1). ([#6](https://github.com/b451c/MaxPane/issues/6))
-- **Toolbar windows not found by FindReaperWindow** — Removed overly aggressive toolbar filter from `FindWindowEnumProc` that prevented toolbar HWNDs from being located during cleanup.
-- **Known windows captured via Open Windows menu had no toggle action** — `LookupToggleAction` now auto-detects the REAPER toggle action ID for any window title (toolbars + known windows), ensuring proper state management.
+- **Crash when capturing Docker or MaxPane itself** — Added ancestor guard in `DoCapture()` that rejects any window in MaxPane's parent chain, preventing circular reparenting crash. Docker and MaxPane are also filtered from the Open Windows menu. ([#2](https://github.com/b451c/MaxPane/issues/2), [#4](https://github.com/b451c/MaxPane/issues/4))
+- **MIDI Editor survives project tab switches** — New `dynamicTitle` mechanism stores a stable search prefix ("MIDI take:") instead of the exact window title. `CheckAlive` automatically recaptures the MIDI Editor when REAPER opens a new one after project switch or restart. ([#3](https://github.com/b451c/MaxPane/issues/3))
+- **`was_visible` not cleared on close** — Added `was_visible=0` in `WM_DESTROY` handler as safety net for all window destruction paths. "Close Container" menu now calls `Toggle()` instead of `Shutdown()` directly. ([#5](https://github.com/b451c/MaxPane/issues/5))
+- **Visual glitches** — Hide close button on narrow tabs (< 60px); splitter hover timer now uses full hit testing; hover state cleared when context menu closes; adaptive text color (black on bright tab colors like yellow/cyan). ([#7](https://github.com/b451c/MaxPane/issues/7))
+- **Toolbar rendering and docking in MaxPane** — Toolbars can now be properly captured and displayed. Removed toolbar filter from `FindWindowEnumProc`. ([#6](https://github.com/b451c/MaxPane/issues/6))
+- **Workspace switching: stale windows floating after restart** — Windows from previous workspaces (toolbars, Actions, FX Browser, ReaImGui scripts) no longer appear as floating windows after switching workspaces and restarting REAPER. State-specific cleanup: double-toggle for state=0 windows, ShowWindow fallback for stubborn HWNDs, skip-toggle for script actions (state=-1). ([#6](https://github.com/b451c/MaxPane/issues/6))
+- **Auto-detect toggle action** — `LookupToggleAction` now auto-detects the REAPER toggle action ID for any window title (toolbars + known windows), ensuring proper state management for windows captured via Open Windows menu.
 
 ---
 
