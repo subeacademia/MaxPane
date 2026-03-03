@@ -71,7 +71,7 @@ void ReDockItContainer::OnPaint(HDC hdc)
 
       RECT contentRect = paneRect;
       contentRect.top += TAB_BAR_HEIGHT;
-      SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+      SetTextColor(hdc, RGB(80, 80, 80));
       DrawText(hdc, "Click header to assign a window", -1, &contentRect,
                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
