@@ -38,11 +38,15 @@ target_compile_definitions(reaper_maxpane PRIVATE
   $<$<PLATFORM_ID:Windows>:NOMINMAX>
 )
 
-target_compile_options(reaper_maxpane PRIVATE
-  -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
-  -Wshadow
-  -Wconversion -Wno-sign-conversion
-)
+if(MSVC)
+  target_compile_options(reaper_maxpane PRIVATE /W3)
+else()
+  target_compile_options(reaper_maxpane PRIVATE
+    -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
+    -Wshadow
+    -Wconversion -Wno-sign-conversion
+  )
+endif()
 
 if(APPLE)
   set_target_properties(reaper_maxpane PROPERTIES
@@ -59,5 +63,33 @@ if(APPLE)
   target_sources(reaper_maxpane PRIVATE
     ${WDL_DIR}/swell/swell-modstub.mm
     src/swell_cocoa_helpers.mm
+  )
+elseif(WIN32)
+  set_target_properties(reaper_maxpane PROPERTIES
+    SUFFIX ".dll"
+    PREFIX ""
+    OUTPUT_NAME "reaper_maxpane"
+  )
+  # Windows uses native Win32 — no SWELL needed
+  target_compile_definitions(reaper_maxpane PRIVATE
+    WIN32_LEAN_AND_MEAN
+  )
+  # Remove SWELL_PROVIDED_BY_APP on Windows
+  get_target_property(_defs reaper_maxpane COMPILE_DEFINITIONS)
+  list(REMOVE_ITEM _defs "SWELL_PROVIDED_BY_APP")
+  set_target_properties(reaper_maxpane PROPERTIES COMPILE_DEFINITIONS "${_defs}")
+elseif(UNIX)
+  set_target_properties(reaper_maxpane PROPERTIES
+    SUFFIX ".so"
+    PREFIX ""
+    OUTPUT_NAME "reaper_maxpane"
+  )
+  # Linux uses SWELL via custom modstub
+  target_sources(reaper_maxpane PRIVATE
+    src/swell_modstub.cpp
+  )
+  target_link_libraries(reaper_maxpane PRIVATE
+    dl
+    pthread
   )
 endif()
