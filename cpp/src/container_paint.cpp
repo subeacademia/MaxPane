@@ -183,16 +183,31 @@ void MaxPaneContainer::DrawTabBar(HDC hdc, int paneId, const RECT& paneRect)
     }
 
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, (t == ps->activeTab) ? COLOR_TAB_ACTIVE_TEXT : COLOR_TAB_INACTIVE_TEXT);
+    {
+      COLORREF textColor;
+      int ci = ps->tabs[t].colorIndex;
+      if (ci > 0 && ci < TAB_COLOR_COUNT && t == ps->activeTab) {
+        // Active tab with custom color: pick black or white based on luminance
+        const TabColor& tc = TAB_COLORS[ci];
+        int lum = (tc.r * 299 + tc.g * 587 + tc.b * 114) / 1000;
+        textColor = lum > 140 ? RGB(0, 0, 0) : COLOR_TAB_ACTIVE_TEXT;
+      } else {
+        textColor = (t == ps->activeTab) ? COLOR_TAB_ACTIVE_TEXT : COLOR_TAB_INACTIVE_TEXT;
+      }
+      SetTextColor(hdc, textColor);
+    }
     RECT textRect = tabRect;
     textRect.left += TAB_TEXT_LEFT_PAD;
     textRect.right -= TAB_TEXT_RIGHT_MARGIN;
     const char* tabName = ps->tabs[t].name[0] ? ps->tabs[t].name : "?";
     DrawText(hdc, tabName, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
 
-    SetTextColor(hdc, COLOR_TAB_CLOSE_TEXT);
-    RECT closeRect = { tabRight - 16, tabBarTop + 2, tabRight - 2, tabBarBottom - 2 };
-    DrawText(hdc, "x", 1, &closeRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    // Only draw close button if tab is wide enough to avoid overlap
+    if (lay.tabWidth >= TAB_MIN_WIDTH) {
+      SetTextColor(hdc, COLOR_TAB_CLOSE_TEXT);
+      RECT closeRect = { tabRight - 16, tabBarTop + 2, tabRight - 2, tabBarBottom - 2 };
+      DrawText(hdc, "x", 1, &closeRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
 
     if (t < ps->tabCount - 1) {
       HPEN oldPen = (HPEN)SelectObject(hdc, m_penTabSeparator);

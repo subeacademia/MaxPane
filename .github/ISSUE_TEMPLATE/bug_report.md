@@ -6,6 +6,12 @@ labels: bug
 assignees: ''
 ---
 
+## Environment
+
+- **MaxPane version**: <!-- e.g. v1.5.1 — check Help > About or the release you downloaded -->
+- **REAPER version**: <!-- e.g. 7.62 -->
+- **OS**: <!-- e.g. macOS 15.3 arm64, Windows 11, Ubuntu 24.04 -->
+
 ## Description
 
 A clear description of the bug.
@@ -24,17 +30,10 @@ What you expected to happen.
 
 What actually happened.
 
-## Environment
+## Screenshots / GIFs
 
-- **REAPER version**:
-- **MaxPane version**:
-- **OS**: (e.g., macOS 15.3, arm64)
-- **Build type**: Release / Debug
+If applicable, add screenshots or screen recordings to help explain the issue.
 
 ## Debug log (if applicable)
 
 If using a Debug build, attach the relevant section from `/tmp/maxpane_debug.log`.
-
-## Screenshots
-
-If applicable, add screenshots to help explain the issue.

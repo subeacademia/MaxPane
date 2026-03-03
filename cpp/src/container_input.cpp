@@ -87,6 +87,10 @@ bool MaxPaneContainer::IsOnTabCloseButton(int paneId, int tabIndex, int x, int y
   const PaneState* ps = m_winMgr.GetPaneState(paneId);
   if (!ps || tabIndex < 0 || tabIndex >= ps->tabCount) return false;
 
+  // Close button hidden when tabs are narrow (matches DrawTabBar)
+  TabBarLayout lay = CalcTabBarLayout(paneId);
+  if (lay.tabWidth < TAB_MIN_WIDTH) return false;
+
   RECT tr = GetTabRect(paneId, tabIndex);
   // Empty rect means tab not visible
   if (tr.left == 0 && tr.right == 0) return false;

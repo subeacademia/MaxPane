@@ -396,6 +396,11 @@ void MaxPaneContainer::OnContextMenu(int x, int y)
     int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, m_hwnd, nullptr);
     DestroyMenu(menu);
 
+    // Clear stale hover state — mouse has moved during menu interaction
+    m_hoverPane = -1;
+    m_hoverTab = -1;
+    m_hoverSplitter = -1;
+
     HandleTabMenuCommand(cmd, paneId, tabIdx);
     return;
   }
@@ -417,6 +422,10 @@ void MaxPaneContainer::OnContextMenu(int x, int y)
   int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, m_hwnd, nullptr);
   DestroyMenu(menu);
 
+  m_hoverPane = -1;
+  m_hoverTab = -1;
+  m_hoverSplitter = -1;
+
   HandlePaneMenuCommand(cmd, paneId);
 }
 
@@ -430,6 +439,10 @@ void MaxPaneContainer::OnPaneMenuButtonClick(int paneId, int x, int y)
   ClientToScreen(m_hwnd, &pt);
   int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, m_hwnd, nullptr);
   DestroyMenu(menu);
+
+  m_hoverPane = -1;
+  m_hoverTab = -1;
+  m_hoverSplitter = -1;
 
   HandlePaneMenuCommand(cmd, paneId);
 }
@@ -605,7 +618,7 @@ void MaxPaneContainer::HandlePaneMenuCommand(int cmd, int paneId)
 
   // Close MaxPane container
   if (cmd == MenuIds::CLOSE_CONTAINER) {
-    Shutdown();
+    Toggle();  // Toggle sets was_visible=0 before Shutdown
     return;
   }
 
@@ -913,25 +926,51 @@ INT_PTR CALLBACK MaxPaneContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, L
         ScreenToClient(hwnd, &pt);
         RECT rc;
         GetClientRect(hwnd, &rc);
-        if (pt.x < rc.left || pt.x >= rc.right || pt.y < rc.top || pt.y >= rc.bottom) {
-          // Cache hover positions before clearing — for targeted invalidation
+        bool outside = (pt.x < rc.left || pt.x >= rc.right || pt.y < rc.top || pt.y >= rc.bottom);
+
+        // Compute current hover targets from cursor position (handles
+        // mouse moving onto captured child windows where we stop getting
+        // WM_MOUSEMOVE but cursor is still inside the container rect).
+        int curSplitter = outside ? -1 : self->m_tree.HitTestSplitter(pt.x, pt.y);
+        int curPane = -1, curTab = -1;
+        if (!outside) {
+          for (int i = 0; i < self->m_tree.GetLeafCount(); i++) {
+            int pid = self->m_tree.GetPaneId(self->m_tree.GetLeafList()[i]);
+            if (pid < 0) continue;
+            int t = self->TabHitTest(pid, pt.x, pt.y);
+            if (t != -1) { curPane = pid; curTab = t; break; }
+          }
+        }
+
+        if (curSplitter != self->m_hoverSplitter ||
+            curPane != self->m_hoverPane || curTab != self->m_hoverTab) {
           int oldSplitter = self->m_hoverSplitter;
           int oldPane     = self->m_hoverPane;
           int oldTab      = self->m_hoverTab;
-          self->m_hoverSplitter = -1;
-          self->m_hoverPane = -1;
-          self->m_hoverTab = -1;
-          KillTimer(hwnd, TIMER_ID_HOVER);
+          self->m_hoverSplitter = curSplitter;
+          self->m_hoverPane = curPane;
+          self->m_hoverTab = curTab;
+
+          if (curSplitter < 0 && curTab == -1)
+            KillTimer(hwnd, TIMER_ID_HOVER);
 
           RECT dirty = {};
-          // Splitter hover
           if (oldSplitter >= 0)
             ExpandRect(dirty, self->m_tree.GetNode(oldSplitter).splitterRect);
-          // Tab or menu button hover
+          if (curSplitter >= 0)
+            ExpandRect(dirty, self->m_tree.GetNode(curSplitter).splitterRect);
           if (oldPane >= 0 && oldTab >= 0)
             ExpandRect(dirty, self->GetTabRect(oldPane, oldTab));
           else if (oldPane >= 0 && oldTab == -2) {
             const RECT& pr = self->m_tree.GetPaneRect(oldPane);
+            RECT btnR = { pr.right - PANE_MENU_BTN_WIDTH, pr.top,
+                          pr.right, pr.top + TAB_BAR_HEIGHT };
+            ExpandRect(dirty, btnR);
+          }
+          if (curPane >= 0 && curTab >= 0)
+            ExpandRect(dirty, self->GetTabRect(curPane, curTab));
+          else if (curPane >= 0 && curTab == -2) {
+            const RECT& pr = self->m_tree.GetPaneRect(curPane);
             RECT btnR = { pr.right - PANE_MENU_BTN_WIDTH, pr.top,
                           pr.right, pr.top + TAB_BAR_HEIGHT };
             ExpandRect(dirty, btnR);
@@ -1035,6 +1074,13 @@ INT_PTR CALLBACK MaxPaneContainer::DlgProc(HWND hwnd, UINT msg, WPARAM wParam, L
       if (self) {
         KillTimer(hwnd, TIMER_ID_CHECK);
         KillTimer(hwnd, TIMER_ID_CAPTURE);
+        // Fallback: ensure was_visible is cleared no matter how the window
+        // was destroyed (REAPER docker close, DestroyWindow, etc.).
+        // Toggle() already sets this, but if the destroy came from a path
+        // that bypassed Toggle (e.g. REAPER's dock system), this catches it.
+        if (g_SetExtState) {
+          g_SetExtState("MaxPane_cpp", "was_visible", "0", true);
+        }
       }
       return 0;
     }
