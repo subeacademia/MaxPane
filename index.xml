@@ -1,24 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <index version="1" name="MaxPane">
   <category name="Extensions">
-    <reapack name="reaper_maxpane" type="extension" desc="Nested docker layouts for REAPER">
+    <reapack name="reaper_maxpane" type="extension" desc="MaxPane">
       <metadata>
         <link rel="website">https://github.com/b451c/MaxPane</link>
-        <description><![CDATA[# MaxPane
-
-Nested docker layouts for REAPER — a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.
-
-## Features
-
-- Flexible split layouts (up to 16 panes)
-- Tabbed windows with drag-and-drop between panes
-- 14 known REAPER windows with one-click capture
-- Arbitrary window capture (including ReaImGui scripts)
-- Named workspaces (save/restore complete layouts)
-- Favorites, tab colors, layout presets
-- Full state persistence across REAPER restarts
-- Zero dependencies — pure C++ extension
-]]></description>
+        <link rel="screenshot" href="https://raw.githubusercontent.com/b451c/MaxPane/main/docs/images/maxpane-hero.png">MaxPane overview</link>
+        <link rel="screenshot" href="https://raw.githubusercontent.com/b451c/MaxPane/main/docs/images/maxpane-layout.png">Full layout view</link>
+        <link rel="donation" href="https://ko-fi.com/quickmd">Ko-fi</link>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 Helvetica;}}
+\f0\fs28 MaxPane \u8212? Nested docker layouts for REAPER\line
+\line
+\fs22 A native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.\line
+\line
+\b Features:\b0\line
+\line
+\bullet  Flexible split layouts (up to 16 panes)\line
+\bullet  Tabbed windows with drag-and-drop between panes\line
+\bullet  14 known REAPER windows with one-click capture\line
+\bullet  Arbitrary window capture (including ReaImGui scripts)\line
+\bullet  Named workspaces (save/restore complete layouts)\line
+\bullet  Favorites, tab colors, layout presets\line
+\bullet  Per-project state saved inside .RPP files\line
+\bullet  Full state persistence across REAPER restarts\line
+\bullet  Dockable into REAPER's native docker system\line
+\bullet  Zero dependencies \u8212? pure C++ extension\line
+}]]></description>
       </metadata>
 
       <version name="1.3.0" author="b451c" time="2026-03-03T00:00:00Z">
