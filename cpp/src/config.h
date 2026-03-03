@@ -63,11 +63,14 @@ static const int MAX_FAVORITES = 32;
 
 #include "platform.h"
 
-// Pane background (captured windows have no own background — parent color shows through)
-static const COLORREF COLOR_PANE_BG           = RGB(172, 172, 172);
+// Pane background (captured windows have no own background — parent color shows through).
+// Adapts to macOS dark mode at startup via GetPaneBgColor() / GetPaneGridLineColor().
+COLORREF GetPaneBgColor();
+COLORREF GetPaneGridLineColor();
+#define COLOR_PANE_BG        GetPaneBgColor()
+#define COLOR_PANE_GRID_LINE GetPaneGridLineColor()
 
-// Subtle vertical lines drawn in empty panes (disappear when a window is captured)
-static const COLORREF COLOR_PANE_GRID_LINE    = RGB(158, 158, 158);
+// Grid line spacing in empty panes
 static const int      PANE_GRID_SPACING       = 24;
 
 // Empty pane header

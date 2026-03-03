@@ -2,6 +2,7 @@
 // (OnPaint, DrawTabBar)
 #include "container.h"
 #include "config.h"
+#include "swell_cocoa_helpers.h"
 
 // =========================================================================
 // OnPaint
@@ -90,7 +91,7 @@ void MaxPaneContainer::OnPaint(HDC hdc)
         SelectObject(hdc, oldPen);
       }
 
-      SetTextColor(hdc, RGB(80, 80, 80));
+      SetTextColor(hdc, IsSystemDarkMode() ? RGB(120, 120, 120) : RGB(80, 80, 80));
       DrawText(hdc, "Click header to assign a window", -1, &contentRect,
                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }

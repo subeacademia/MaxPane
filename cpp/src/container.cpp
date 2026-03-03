@@ -8,6 +8,7 @@
 #include "context_menu.h"
 #include "project_state.h"
 #include "state_accessor.h"
+#include "swell_cocoa_helpers.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>

@@ -6,6 +6,8 @@
 // Call this after reparenting to ensure child controls lay out correctly.
 #ifdef __APPLE__
 void ForceViewLayoutAndDisplay(HWND hwnd);
+bool IsSystemDarkMode();
 #else
 inline void ForceViewLayoutAndDisplay(HWND) {}
+inline bool IsSystemDarkMode() { return false; }
 #endif

@@ -355,6 +355,7 @@ bool WindowManager::DoCapture(TabEntry& tab, HWND targetHwnd, HWND containerHwnd
   // Routing Matrix grid) may have stale frames from before reparent.
   ForceViewLayoutAndDisplay(targetHwnd);
 
+
   DBG("[MaxPane] DoCapture: DONE hwnd=%p captured=true\n", (void*)targetHwnd);
   return true;
 }

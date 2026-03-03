@@ -1,4 +1,28 @@
 #include "config.h"
+#include "swell_cocoa_helpers.h"
+
+// Cached dark mode state — checked once at startup
+static bool g_darkModeChecked = false;
+static bool g_darkModeActive = false;
+
+static bool IsDarkMode()
+{
+  if (!g_darkModeChecked) {
+    g_darkModeActive = IsSystemDarkMode();
+    g_darkModeChecked = true;
+  }
+  return g_darkModeActive;
+}
+
+COLORREF GetPaneBgColor()
+{
+  return IsDarkMode() ? RGB(51, 51, 51) : RGB(172, 172, 172);
+}
+
+COLORREF GetPaneGridLineColor()
+{
+  return IsDarkMode() ? RGB(65, 65, 65) : RGB(158, 158, 158);
+}
 
 const char* const EXT_SECTION = "MaxPane_cpp";
 

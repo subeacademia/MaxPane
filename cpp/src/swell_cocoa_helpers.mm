@@ -3,6 +3,16 @@
 #include "swell_cocoa_helpers.h"
 #include "debug.h"
 
+bool IsSystemDarkMode()
+{
+  if (@available(macOS 10.14, *)) {
+    NSAppearanceName appearanceName = [[NSApp effectiveAppearance] bestMatchFromAppearancesWithNames:
+      @[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]];
+    return [appearanceName isEqualToString:NSAppearanceNameDarkAqua];
+  }
+  return false;
+}
+
 void ForceViewLayoutAndDisplay(HWND hwnd)
 {
   if (!hwnd) return;
