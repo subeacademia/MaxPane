@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/b451c/MaxPane)](https://github.com/b451c/MaxPane/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](#requirements)
+[![Platform](https://img.shields.io/badge/platform-macOS%20(stable)%20%7C%20Windows%20%26%20Linux%20(alpha)-lightgrey.svg)](#requirements)
 
 **Nested docker layouts for REAPER** — a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.
 
@@ -140,9 +140,9 @@ make
 ## Requirements
 
 - **REAPER** 7.0+ (tested on 7.62)
-- **macOS** arm64 (Apple Silicon) and x86_64 (Intel)
-- **Windows** x64
-- **Linux** x86_64
+- **macOS** arm64 (Apple Silicon) and x86_64 (Intel) — **stable, fully functional**
+- **Windows** x64 — ⚠️ **alpha** (loads in REAPER but mouse input/window capture not working yet)
+- **Linux** x86_64 — ⚠️ **alpha** (loads in REAPER but not functional yet)
 
 ## Architecture
 
